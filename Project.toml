@@ -10,6 +10,7 @@ GraphsMatching = "c3af3a8c-b79e-4b01-bf44-c718d7e0e0d6"
 MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
 
 [compat]
+MathOptInterface = "1"
 julia = "1"
 
 [extras]
