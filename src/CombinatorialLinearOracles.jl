@@ -56,7 +56,7 @@ function compute_extreme_point(
     N = length(direction)
     iter = collect(Graphs.edges(lmo.graph))
     w = Dict{typeof(iter[1]),typeof(direction[1])}()
-    for i in N
+    for i in 1:N
         w[iter[i]] = direction[i]
     end
     match = GraphsMatching.minimum_weight_perfect_matching(lmo.graph,w)
@@ -64,7 +64,7 @@ function compute_extreme_point(
     v = spzeros(K)
     for i in 1:K
         for edge in iter
-            if(math.mate[i] == src(edge) && dst(egde) == i)
+            if(match.mate[i] == src(edge) && dst(edge) == i)
                 v[i] = 1
             end
         end
