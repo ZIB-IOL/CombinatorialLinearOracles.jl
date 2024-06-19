@@ -44,9 +44,8 @@ end
         end
     end
     is_spanning_tree = true
-    print(K)
     for i in 1:N
-        is_spanning_tree &= K > 0 
+        is_spanning_tree &= K[i] > 0 
     end
     @test is_spanning_tree == true
 end
