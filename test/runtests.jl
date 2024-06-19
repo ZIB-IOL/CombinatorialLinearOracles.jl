@@ -38,12 +38,15 @@ end
     v = CombinatorialLinearOracles.compute_extreme_point(lmo,direction)
     K = zeros(N)
     for i in 1:M
-        K[src(iter[i])] += 1
-        K[dst(iter[i])] += 1
+        if(v[i] == 1)
+            K[src(iter[i])] += 1
+            K[dst(iter[i])] += 1
+        end
     end
     is_spanning_tree = true
+    print(K)
     for i in 1:N
-        is_spanning_tree &= K[i] > 0
+        is_spanning_tree &= K > 0 
     end
     @test is_spanning_tree == true
 end
