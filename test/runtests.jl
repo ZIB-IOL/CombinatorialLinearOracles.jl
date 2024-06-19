@@ -2,7 +2,6 @@ using .CombinatorialLinearOracles
 using Test
 using Random
 using Graphs
-using SparseArrays
 
 @testset "Matching LMO" begin
     N = Int(1e1)
