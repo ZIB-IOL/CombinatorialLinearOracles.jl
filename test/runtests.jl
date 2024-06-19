@@ -4,7 +4,7 @@ using Random
 using Graphs
 
 @testset "Matching LMO" begin
-    N = Int(1e1)
+    N = Int(1e3)
     Random.seed!(4321)
     g = Graphs.complete_graph(N)
     iter = collect(Graphs.edges(g))
@@ -26,3 +26,25 @@ using Graphs
     end
     @test is_matching == true
 end
+
+@testset "SpanningTreeLMO" begin
+    N = Int(1e2)
+    Random.seed!(1645)
+    g = Graphs.complete_graph(N)
+    iter = collect(Graphs.edges(g))
+    M = length(iter)
+    direction = randn(M)
+    lmo = CombinatorialLinearOracles.SpanningTreeLMO(g)
+    v = CombinatorialLinearOracles.compute_extreme_point(lmo,direction)
+    K = zeros(N)
+    for i in 1:M
+        K[src(iter[i])] += 1
+        K[dst(iter[i])] += 1
+    end
+    is_spanning_tree = true
+    for i in 1:N
+        is_spanning_tree &= K[i] > 0
+    end
+    @test is_spanning_tree == true
+end
+
