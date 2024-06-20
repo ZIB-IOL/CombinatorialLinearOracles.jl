@@ -28,7 +28,7 @@ using Graphs
 end
 
 @testset "SpanningTreeLMO" begin
-    N = Int(1e2)
+    N = 500
     Random.seed!(1645)
     g = Graphs.complete_graph(N)
     iter = collect(Graphs.edges(g))
@@ -36,17 +36,12 @@ end
     direction = randn(M)
     lmo = CombinatorialLinearOracles.SpanningTreeLMO(g)
     v = CombinatorialLinearOracles.compute_extreme_point(lmo,direction)
-    K = zeros(N)
+    tree = Array{Edge}(undef,(0,))
     for i in 1:M
         if(v[i] == 1)
-            K[src(iter[i])] += 1
-            K[dst(iter[i])] += 1
+            push!(tree,iter[i])
         end
     end
-    is_spanning_tree = true
-    for i in 1:N
-        is_spanning_tree &= K[i] > 0 
-    end
-    @test is_spanning_tree == true
+    @test Graphs.is_tree(SimpleGraphFromIterator(tree)) == true
 end
 
