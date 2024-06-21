@@ -16,24 +16,24 @@ function compute_extreme_point(
     kwargs...,
 ) where {M}
     N = length(direction)
+    v = spzeros(N)
+    if(nv(lmo.graph) % 2 != 0)
+        return v
+    end
     iter = collect(Graphs.edges(lmo.graph))
     w = Dict{typeof(iter[1]),typeof(direction[1])}()
     for i in 1:N
         w[iter[i]] = direction[i]
     end
-    v = spzeros(N)
-    try
-        match = GraphsMatching.minimum_weight_perfect_matching(lmo.graph,w)
-        K = length(match.mate)
-        for i in 1:K
-            for j in 1:N
-                if(match.mate[i] == src(iter[j]) && dst(iter[j]) == i)
-                    v[j] = 1
-                end
+    
+    match = GraphsMatching.minimum_weight_perfect_matching(lmo.graph,w)
+    K = length(match.mate)
+    for i in 1:K
+        for j in 1:N
+            if(match.mate[i] == src(iter[j]) && dst(iter[j]) == i)
+                v[j] = 1
             end
         end
-    return v
-    catch err
-        return v
     end
+    return v
 end
