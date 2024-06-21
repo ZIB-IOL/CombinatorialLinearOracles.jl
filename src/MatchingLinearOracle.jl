@@ -24,16 +24,16 @@ function compute_extreme_point(
     v = spzeros(N)
     try
         match = GraphsMatching.minimum_weight_perfect_matching(lmo.graph,w)
+        K = length(match.mate)
+        for i in 1:K
+            for j in 1:N
+                if(match.mate[i] == src(iter[j]) && dst(iter[j]) == i)
+                    v[j] = 1
+                end
+            end
+        end
+    return v
     catch err
         return v
     end
-    K = length(match.mate)
-    for i in 1:K
-        for j in 1:N
-            if(match.mate[i] == src(iter[j]) && dst(iter[j]) == i)
-                v[j] = 1
-            end
-        end
-    end
-    return v
 end
