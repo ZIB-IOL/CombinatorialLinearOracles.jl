@@ -1,6 +1,6 @@
 name = "CombinatorialLinearOracles"
 uuid = "0002e35e-4a6a-41c8-a2f5-6940c7e5949f"
-authors = ["Mathieu Besançon <mathieu.besancon@gmail.com> and contributors"]
+authors = ["ZIB-IOL and contributors"]
 version = "1.0.0-DEV"
 
 [deps]
