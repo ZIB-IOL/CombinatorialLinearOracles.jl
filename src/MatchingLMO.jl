@@ -9,6 +9,13 @@ struct MatchingLMO{G} <: FrankWolfe.LinearMinimizationOracle
     graph::G
 end
 
+"""
+function MatchingLMO(g)
+
+    return 
+end
+"""
+
 function compute_extreme_point(
     lmo::MatchingLMO,
     direction::M;
@@ -20,13 +27,25 @@ function compute_extreme_point(
     if(nv(lmo.graph) % 2 != 0)
         return v
     end
-    iter = collect(Graphs.edges(lmo.graph))
+    iter = collect(edges(lmo.graph))
+    g = SimpleGraphFromIterator(iter)
+    l = nv(g)
+    add_vertices!(g,l)
     w = Dict{typeof(iter[1]),typeof(direction[1])}()
     for i in 1:N
-        w[iter[i]] = direction[i]
+        add_edge!(g,src(iter[i]) + l,dst(iter[i]) + l)
+        w[iter[i]] = -direction[i]
+        w[Edge(src(iter[i]) + l,dst(iter[i]) + l)] = -direction[i]
+    end
+
+    for i in 1:l
+        add_edge!(g,i,i+l)
+        w[Edge(i,i+l)] = 0 
     end
     
-    match = GraphsMatching.minimum_weight_perfect_matching(lmo.graph,w)
+
+    match = GraphsMatching.minimum_weight_perfect_matching(g,w)
+
     K = length(match.mate)
     for i in 1:K
         for j in 1:N
