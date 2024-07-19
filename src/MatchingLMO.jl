@@ -43,7 +43,6 @@ function compute_extreme_point(
         w[Edge(i,i+l)] = 0 
     end
     
-
     match = GraphsMatching.minimum_weight_perfect_matching(g,w)
 
     K = length(match.mate)
