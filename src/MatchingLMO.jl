@@ -2,19 +2,11 @@
 MatchingLMO{G}(g::Graphs)
 
 Return a vector v corresponding to edges(g), where if v[i] = 1, 
-the edge i is in the matching, and if v[i] = 0, the edge i is not in the matching.
-If there is not possible perfect matching, all elements of v are set to 0.  
+the edge i is in the maximum weight matching, and if v[i] = 0, the edge i is not in the matching.
 """
 struct MatchingLMO{G} <: FrankWolfe.LinearMinimizationOracle
     graph::G
 end
-
-"""
-function MatchingLMO(g)
-
-    return 
-end
-"""
 
 function compute_extreme_point(
     lmo::MatchingLMO,
@@ -24,9 +16,6 @@ function compute_extreme_point(
 ) where {M}
     N = length(direction)
     v = spzeros(N)
-    if(nv(lmo.graph) % 2 != 0)
-        return v
-    end
     iter = collect(edges(lmo.graph))
     g = SimpleGraphFromIterator(iter)
     l = nv(g)
