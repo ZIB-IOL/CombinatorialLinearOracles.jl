@@ -29,7 +29,7 @@ import FrankWolfe
             tab[dst(iter[i])] = 1
         end
     end
-    @test is_matching == true
+    @test is_matching
 end
 
 @testset "Matching LMO" begin
