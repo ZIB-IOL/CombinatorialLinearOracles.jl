@@ -8,36 +8,31 @@ struct MatchingLMO{G} <: FrankWolfe.LinearMinimizationOracle
     graph::G
 end
 
-function compute_extreme_point(
-    lmo::MatchingLMO,
-    direction::M;
-    v=nothing,
-    kwargs...,
-) where {M}
+function compute_extreme_point(lmo::MatchingLMO, direction::M; v=nothing, kwargs...) where {M}
     N = length(direction)
     v = spzeros(N)
     iter = collect(edges(lmo.graph))
     g = SimpleGraphFromIterator(iter)
     l = nv(g)
-    add_vertices!(g,l)
+    add_vertices!(g, l)
     w = Dict{typeof(iter[1]),typeof(direction[1])}()
     for i in 1:N
-        add_edge!(g,src(iter[i]) + l,dst(iter[i]) + l)
+        add_edge!(g, src(iter[i]) + l, dst(iter[i]) + l)
         w[iter[i]] = -direction[i]
-        w[Edge(src(iter[i]) + l,dst(iter[i]) + l)] = -direction[i]
+        w[Edge(src(iter[i]) + l, dst(iter[i]) + l)] = -direction[i]
     end
 
     for i in 1:l
-        add_edge!(g,i,i+l)
-        w[Edge(i,i+l)] = 0 
+        add_edge!(g, i, i + l)
+        w[Edge(i, i + l)] = 0
     end
-    
-    match = GraphsMatching.minimum_weight_perfect_matching(g,w)
+
+    match = GraphsMatching.minimum_weight_perfect_matching(g, w)
 
     K = length(match.mate)
     for i in 1:K
         for j in 1:N
-            if(match.mate[i] == src(iter[j]) && dst(iter[j]) == i)
+            if (match.mate[i] == src(iter[j]) && dst(iter[j]) == i)
                 v[j] = 1
             end
         end

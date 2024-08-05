@@ -1,9 +1,9 @@
-using .CombinatorialLinearOracles
+using CombinatorialLinearOracles
 using Test
 using Random
 using SparseArrays
 using Graphs, GraphsMatching
-using JuMP, Cbc
+using HiGHS
 
 @testset "Perfect Matching LMO" begin
     N = Int(1e3)
@@ -37,17 +37,17 @@ end
     M = length(iter)
     direction = randn(M)
     lmo = CombinatorialLinearOracles.MatchingLMO(g)
-    v = CombinatorialLinearOracles.compute_extreme_point(lmo,direction)
-    adjMat = zeros(M,M)
+    v = CombinatorialLinearOracles.compute_extreme_point(lmo, direction)
+    adj_mat = spzeros(M, M)
     for i in 1:M
-        adjMat[src(iter[i]),dst(iter[i])] = direction[i]
+        adj_mat[src(iter[i]), dst(iter[i])] = direction[i]
     end
-    match = GraphsMatching.maximum_weight_matching(g,optimizer_with_attributes(Cbc.Optimizer,"logLevel"=>0),adjMat)
+    match_result = GraphsMatching.maximum_weight_matching(g, HiGHS.Optimizer, adj_mat)
     v_sol = spzeros(M)
-    K = length(match.mate)
+    K = length(match_result.mate)
     for i in 1:K
         for j in 1:M
-            if(match.mate[i] == src(iter[j]) && dst(iter[j]) == i)
+            if (match_result.mate[i] == src(iter[j]) && dst(iter[j]) == i)
                 v_sol[j] = 1
             end
         end
@@ -65,11 +65,11 @@ end
     direction = randn(M)
     lmo = CombinatorialLinearOracles.SpanningTreeLMO(g)
     v = CombinatorialLinearOracles.compute_extreme_point(lmo, direction)
-    tree = Array{Edge}(undef, (0,))
+    tree = eltype(iter)[]
     for i in 1:M
         if (v[i] == 1)
             push!(tree, iter[i])
         end
     end
-    @test Graphs.is_tree(SimpleGraphFromIterator(tree)) == true
+    @test Graphs.is_tree(SimpleGraphFromIterator(tree))
 end
