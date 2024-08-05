@@ -2,8 +2,11 @@ using CombinatorialLinearOracles
 using Test
 using Random
 using SparseArrays
-using Graphs, GraphsMatching
+
+using Graphs
+using GraphsMatching
 using HiGHS
+import FrankWolfe
 
 @testset "Perfect Matching LMO" begin
     N = Int(1e3)
@@ -13,7 +16,7 @@ using HiGHS
     M = length(iter)
     direction = randn(M)
     lmo = CombinatorialLinearOracles.PerfectMatchingLMO(g)
-    v = CombinatorialLinearOracles.compute_extreme_point(lmo, direction)
+    v = FrankWolfe.compute_extreme_point(lmo, direction)
     tab = zeros(M)
     is_matching = true
     for i in 1:M
@@ -37,7 +40,7 @@ end
     M = length(iter)
     direction = randn(M)
     lmo = CombinatorialLinearOracles.MatchingLMO(g)
-    v = CombinatorialLinearOracles.compute_extreme_point(lmo, direction)
+    v = FrankWolfe.compute_extreme_point(lmo, direction)
     adj_mat = spzeros(M, M)
     for i in 1:M
         adj_mat[src(iter[i]), dst(iter[i])] = direction[i]
@@ -64,7 +67,7 @@ end
     M = length(iter)
     direction = randn(M)
     lmo = CombinatorialLinearOracles.SpanningTreeLMO(g)
-    v = CombinatorialLinearOracles.compute_extreme_point(lmo, direction)
+    v = FrankWolfe.compute_extreme_point(lmo, direction)
     tree = eltype(iter)[]
     for i in 1:M
         if (v[i] == 1)

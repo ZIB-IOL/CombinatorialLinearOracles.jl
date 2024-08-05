@@ -5,9 +5,7 @@ using Graphs
 using SparseArrays
 using GraphsMatching
 
-include("PerfectMatchingLMO.jl")
-include("SpanningTreeLinearOracle.jl")
-include("MatchingLMO.jl")
-
+include("matchings.jl")
+include("spanning_tree.jl")
 
 end
