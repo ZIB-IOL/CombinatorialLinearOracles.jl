@@ -9,7 +9,12 @@ struct SpanningTreeLMO{G} <: FrankWolfe.LinearMinimizationOracle
     graph::G
 end
 
-function compute_extreme_point(lmo::SpanningTreeLMO, direction::M; v=nothing, kwargs...) where {M}
+function FrankWolfe.compute_extreme_point(
+    lmo::SpanningTreeLMO,
+    direction::M;
+    v=nothing,
+    kwargs...,
+) where {M}
     N = length(direction)
     iter = collect(Graphs.edges(lmo.graph))
     distmx = spzeros(N, N)
