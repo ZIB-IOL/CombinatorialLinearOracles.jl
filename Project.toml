@@ -13,7 +13,7 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
-FrankWolfe = "0.3"
+FrankWolfe = "0.3, 0.4"
 Graphs = "1"
 GraphsFlows = "0.1"
 GraphsMatching = "0.2"
