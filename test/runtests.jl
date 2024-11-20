@@ -76,3 +76,23 @@ end
     end
     @test Graphs.is_tree(SimpleGraphFromIterator(tree))
 end
+
+@testset "Shortest path" begin
+    n = 200
+    Random.seed!(42)
+    for _ in 1:10
+        g = Graphs.random_orientation_dag(Graphs.complete_graph(n))
+        src_node = 1
+        dst_node = nv(g)
+        while !has_path(g, src_node, dst_node) || src_node == dst_node
+            src_node = rand(1:nv(g))
+            dst_node = rand(1:nv(g))
+        end
+        lmo = CombinatorialLinearOracles.ShortestPathLMO(g, src_node, dst_node)
+        for _ in 1:10
+            direction = randn(ne(g))
+            v = FrankWolfe.compute_extreme_point(lmo, direction)
+            @test sum(v) >= 1
+        end
+    end
+end
