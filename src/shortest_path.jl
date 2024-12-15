@@ -13,18 +13,17 @@ function ShortestPathLMO(graph, src_node, dst_node)
     return ShortestPathLMO{eltype(dist_matrix), typeof(graph)}(graph, src_node, dst_node, dist_matrix)
 end
 
-function FrankWolfe.compute_extreme_point(lmo::ShortestPathLMO, direction)
+function FrankWolfe.compute_extreme_point(lmo::ShortestPathLMO, direction; v=falses(ne(lmo.graph)))
     for (idx, edge) in enumerate(edges(lmo.graph))
         lmo.dist_matrix[src(edge), dst(edge)] = direction[idx]
     end
     shortest_path_result = Set(Graphs.a_star(lmo.graph, lmo.src, lmo.dst, lmo.dist_matrix))
-    # resulting vertex as a BitVector
-    indicence_vector = falses(ne(lmo.graph))
+    v .= 0
     for (idx, edge) in enumerate(edges(lmo.graph))
         if edge in shortest_path_result
-            indicence_vector[idx] = 1
+            v[idx] = 1
             delete!(shortest_path_result, edge)
         end
     end
-    return indicence_vector
+    return v
 end
