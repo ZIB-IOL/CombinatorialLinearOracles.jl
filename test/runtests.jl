@@ -1,4 +1,4 @@
-using CombinatorialLinearOracles
+import CombinatorialLinearOracles as CO
 using Test
 using Random
 using SparseArrays
@@ -15,7 +15,7 @@ import FrankWolfe
     iter = collect(Graphs.edges(g))
     M = length(iter)
     direction = randn(M)
-    lmo = CombinatorialLinearOracles.PerfectMatchingLMO(g)
+    lmo = CO.PerfectMatchingLMO(g)
     v = FrankWolfe.compute_extreme_point(lmo, direction)
     tab = zeros(M)
     is_matching = true
@@ -39,7 +39,7 @@ end
     iter = collect(Graphs.edges(g))
     M = length(iter)
     direction = randn(M)
-    lmo = CombinatorialLinearOracles.MatchingLMO(g)
+    lmo = CO.MatchingLMO(g)
     v = FrankWolfe.compute_extreme_point(lmo, direction)
     adj_mat = spzeros(M, M)
     for i in 1:M
@@ -66,7 +66,7 @@ end
     iter = collect(Graphs.edges(g))
     M = length(iter)
     direction = randn(M)
-    lmo = CombinatorialLinearOracles.SpanningTreeLMO(g)
+    lmo = CO.SpanningTreeLMO(g)
     v = FrankWolfe.compute_extreme_point(lmo, direction)
     tree = eltype(iter)[]
     for i in 1:M
@@ -88,11 +88,26 @@ end
             src_node = rand(1:nv(g))
             dst_node = rand(1:nv(g))
         end
-        lmo = CombinatorialLinearOracles.ShortestPathLMO(g, src_node, dst_node)
+        lmo = CO.ShortestPathLMO(g, src_node, dst_node)
         for _ in 1:10
             direction = randn(ne(g))
             v = FrankWolfe.compute_extreme_point(lmo, direction)
             @test sum(v) >= 1
         end
+    end
+    @testset "Shortest path with negative costs" begin
+        g = SimpleDiGraph(4)
+        add_edge!(g, 1, 2)
+        add_edge!(g, 1, 4)
+        add_edge!(g, 2, 3)
+        add_edge!(g, 3, 4)
+        mat = adjacency_matrix(g)
+        mat[3,4] = -10
+        lmo = CO.ShortestPathLMO(g, 1, 4)
+        costs = ones(ne(g))
+        idx = findfirst(==(Edge(3,4)), collect(edges(g)))
+        costs[idx] = -10
+        v = FrankWolfe.compute_extreme_point(lmo, costs)
+        @test sum(v) == 3
     end
 end
