@@ -15,7 +15,7 @@ function ShortestPathLMO(graph, src_node, dst_node)
     return ShortestPathLMO{eltype(dist_matrix), typeof(graph)}(graph, src_node, dst_node, dist_matrix, edge_dict)
 end
 
-function FrankWolfe.compute_extreme_point(lmo::ShortestPathLMO, direction; v=falses(ne(lmo.graph)))
+function FrankWolfe.compute_extreme_point(lmo::ShortestPathLMO, direction; v=falses(ne(lmo.graph)), kwargs...)
     for (idx, edge) in enumerate(edges(lmo.graph))
         lmo.dist_matrix[src(edge), dst(edge)] = direction[idx]
     end
