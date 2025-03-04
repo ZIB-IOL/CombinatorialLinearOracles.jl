@@ -4,6 +4,7 @@ authors = ["ZIB-IOL and contributors"]
 version = "1.0.0-DEV"
 
 [deps]
+Boscia = "36b166db-dac5-4d05-b36a-e6c4cef071c9"
 FrankWolfe = "f55ce6ea-fdc5-4628-88c5-0087fe54bd30"
 Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
 GraphsFlows = "06909019-6f44-4949-96fc-b9d9aaa02889"
@@ -13,6 +14,7 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
+Boscia = "0.1.26"
 FrankWolfe = "0.3, 0.4"
 Graphs = "1"
 GraphsFlows = "0.1"
