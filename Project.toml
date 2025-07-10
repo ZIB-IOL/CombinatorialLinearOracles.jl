@@ -1,7 +1,7 @@
 name = "CombinatorialLinearOracles"
 uuid = "0002e35e-4a6a-41c8-a2f5-6940c7e5949f"
 authors = ["ZIB-IOL and contributors"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 Boscia = "36b166db-dac5-4d05-b36a-e6c4cef071c9"
