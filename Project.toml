@@ -15,7 +15,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
 Boscia = "0.1.26"
-FrankWolfe = "0.3, 0.4"
+FrankWolfe = "0.5"
 Graphs = "1"
 GraphsFlows = "0.1"
 GraphsMatching = "0.2"
