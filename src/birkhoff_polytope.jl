@@ -59,12 +59,8 @@ BirkhoffLMO(dim; append_by_column=true, atol=1e-6, rtol=1e-3) = BirkhoffLMO(
 """
 Computes the extreme point given an direction d, the current lower and upper bounds on the integer variables, and the set of integer variables.
 """
-function Boscia.compute_extreme_point(lmo::BirkhoffLMO, d; kwargs...)
+function Boscia.compute_extreme_point(lmo::BirkhoffLMO, d::AbstractMatrix{T}; kwargs...) where {T}
     n = lmo.dim
-
-    if size(d, 2) == 1
-        d = lmo.append_by_column ? reshape(d, (n, n)) : transpose(reshape(d, (n, n)))
-    end
 
     fixed_to_one_rows = lmo.fixed_to_one_rows
     fixed_to_one_cols = lmo.fixed_to_one_cols
@@ -135,8 +131,14 @@ function Boscia.compute_extreme_point(lmo::BirkhoffLMO, d; kwargs...)
         m[index_map_rows[rows[i]], index_map_cols[cols[i]]] = (vals[i] == 2)
     end
 
-    if size(d, 2) == 1 || lmo.boscia_use
-        m = if lmo.append_by_column
+    return m
+end
+
+function Boscia.compute_extreme_point(lmo::BirkhoffLMO, d::AbstractVector{T}; kwargs...) where {T}
+    n = lmo.dim
+    d = lmo.append_by_column ? reshape(d, (n, n)) : transpose(reshape(d, (n, n)))
+    m = Boscia.compute_extreme_point(lmo, d; kwargs...)
+    m = if lmo.append_by_column
             # Convert sparse matrix to sparse vector by columns
             I, J, V = SparseArrays.findnz(m)
             linear_indices = (J .- 1) .* n .+ I
@@ -148,25 +150,14 @@ function Boscia.compute_extreme_point(lmo::BirkhoffLMO, d; kwargs...)
             linear_indices = (J .- 1) .* n .+ I
             SparseArrays.sparsevec(linear_indices, V, n^2)
         end
-    end
     return m
 end
-
 
 """
 Computes the extreme point given an direction d, the current lower and upper bounds on the integer variables, and the set of integer variables.
 """
-function Boscia.compute_inface_extreme_point(lmo::BirkhoffLMO, direction, x; kwargs...)
+function Boscia.compute_inface_extreme_point(llmo::BirkhoffLMO, direction::AbstractMatrix{T}, x::AbstractMatrix{T}; kwargs...) where {T}
     n = lmo.dim
-
-    if size(direction, 2) == 1
-        direction =
-            lmo.append_by_column ? reshape(direction, (n, n)) :
-            transpose(reshape(direction, (n, n)))
-
-        x = lmo.append_by_column ? reshape(x, (n, n)) : transpose(reshape(x, (n, n)))
-    end
-
     # Precompute index mapping to avoid repeated `findfirst` calls,
     # which would be very costly inside the loop.
     if length(lmo.int_vars) !== n^2
@@ -265,8 +256,15 @@ function Boscia.compute_inface_extreme_point(lmo::BirkhoffLMO, direction, x; kwa
         m[index_map_rows[rows[i]], index_map_cols[cols[i]]] = (vals[i] == 2)
     end
 
-    if size(direction, 2) == 1 || lmo.boscia_use
-        m = if lmo.append_by_column
+    return m
+end
+
+function Boscia.compute_inface_extreme_point(lmo::BirkhoffLMO, direction::AbstractVector{T}, x::AbstractVector{T}; kwargs...) where {T}
+    n = lmo.dim
+    direction = lmo.append_by_column ? reshape(direction, (n, n)) : transpose(reshape(direction, (n, n)))
+    x = lmo.append_by_column ? reshape(x, (n, n)) : transpose(reshape(x, (n, n)))
+    m = Boscia.compute_inface_extreme_point(lmo, direction, x; kwargs...)
+    m = if lmo.append_by_column
             # Convert sparse matrix to sparse vector by columns
             I, J, V = SparseArrays.findnz(m)
             linear_indices = (J .- 1) .* n .+ I
@@ -278,7 +276,7 @@ function Boscia.compute_inface_extreme_point(lmo::BirkhoffLMO, direction, x; kwa
             linear_indices = (J .- 1) .* n .+ I
             SparseArrays.sparsevec(linear_indices, V, n^2)
         end
-    end
+    
     return m
 end
 
@@ -289,15 +287,8 @@ Fixings are maintained by the oracle (or deduced from `x` itself).
 function Boscia.dicg_maximum_step(lmo::BirkhoffLMO, direction, x; kwargs...)
     n = lmo.dim
     T = promote_type(eltype(x), eltype(direction))
-    if size(direction, 2) == 1
-        direction =
-            lmo.append_by_column ? reshape(direction, (n, n)) :
-            transpose(reshape(direction, (n, n)))
-
-        x = lmo.append_by_column ? reshape(x, (n, n)) : transpose(reshape(x, (n, n)))
-    end
-
     gamma_max = one(T)
+    
     for idx in eachindex(x)
         if direction[idx] != 0.0
             # iterate already on the boundary
