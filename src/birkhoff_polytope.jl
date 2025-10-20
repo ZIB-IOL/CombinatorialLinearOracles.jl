@@ -80,8 +80,7 @@ function Boscia.compute_extreme_point(lmo::BirkhoffLMO, d::AbstractMatrix{T}; kw
     end
 
     nreduced = length(index_map_rows)
-    type = typeof(d[1, 1])
-    d2 = ones(Union{type,Missing}, nreduced, nreduced)
+    d2 = ones(Union{T,Missing}, nreduced, nreduced)
 
     for j in 1:nreduced
         col_orig = index_map_cols[j]
@@ -139,24 +138,29 @@ function Boscia.compute_extreme_point(lmo::BirkhoffLMO, d::AbstractVector{T}; kw
     d = lmo.append_by_column ? reshape(d, (n, n)) : transpose(reshape(d, (n, n)))
     m = Boscia.compute_extreme_point(lmo, d; kwargs...)
     m = if lmo.append_by_column
-            # Convert sparse matrix to sparse vector by columns
-            I, J, V = SparseArrays.findnz(m)
-            linear_indices = (J .- 1) .* n .+ I
-            SparseArrays.sparsevec(linear_indices, V, n^2)
-        else
-            # Convert sparse matrix to sparse vector by rows (transpose first)
-            mt = SparseArrays.sparse(LinearAlgebra.transpose(m))
-            I, J, V = SparseArrays.findnz(mt)
-            linear_indices = (J .- 1) .* n .+ I
-            SparseArrays.sparsevec(linear_indices, V, n^2)
-        end
+        # Convert sparse matrix to sparse vector by columns
+        I, J, V = SparseArrays.findnz(m)
+        linear_indices = (J .- 1) .* n .+ I
+        SparseArrays.sparsevec(linear_indices, V, n^2)
+    else
+        # Convert sparse matrix to sparse vector by rows (transpose first)
+        mt = SparseArrays.sparse(LinearAlgebra.transpose(m))
+        I, J, V = SparseArrays.findnz(mt)
+        linear_indices = (J .- 1) .* n .+ I
+        SparseArrays.sparsevec(linear_indices, V, n^2)
+    end
     return m
 end
 
 """
 Computes the extreme point given an direction d, the current lower and upper bounds on the integer variables, and the set of integer variables.
 """
-function Boscia.compute_inface_extreme_point(llmo::BirkhoffLMO, direction::AbstractMatrix{T}, x::AbstractMatrix{T}; kwargs...) where {T}
+function FrankWolfe.compute_inface_extreme_point(
+    lmo::BirkhoffLMO,
+    direction::AbstractMatrix{T},
+    x::AbstractMatrix{T};
+    kwargs...,
+) where {T}
     n = lmo.dim
     # Precompute index mapping to avoid repeated `findfirst` calls,
     # which would be very costly inside the loop.
@@ -200,8 +204,7 @@ function Boscia.compute_inface_extreme_point(llmo::BirkhoffLMO, direction::Abstr
     deleteat!(index_map_cols, delete_index_map_cols)
 
     nreduced = length(index_map_rows)
-    type = typeof(direction[1, 1])
-    d2 = ones(Union{type,Missing}, nreduced, nreduced)
+    d2 = ones(Union{T,Missing}, nreduced, nreduced)
     for j in 1:nreduced
         col_orig = index_map_cols[j]
         for i in 1:nreduced
@@ -217,8 +220,8 @@ function Boscia.compute_inface_extreme_point(llmo::BirkhoffLMO, direction::Abstr
                 else
                     d2[j, i] = missing
                 end
-            # the problem can only be integer types,
-            # either full-integer or mixed-integer.
+                # the problem can only be integer types,
+                # either full-integer or mixed-integer.
             elseif length(int_vars) == n^2 || idx_map_ub[orig_linear_idx] != 0
                 idx = length(int_vars) < n^2 ? idx_map_ub[orig_linear_idx] : orig_linear_idx
                 # interdict arc when fixed to zero
@@ -259,24 +262,30 @@ function Boscia.compute_inface_extreme_point(llmo::BirkhoffLMO, direction::Abstr
     return m
 end
 
-function Boscia.compute_inface_extreme_point(lmo::BirkhoffLMO, direction::AbstractVector{T}, x::AbstractVector{T}; kwargs...) where {T}
+function FrankWolfe.compute_inface_extreme_point(
+    lmo::BirkhoffLMO,
+    direction::AbstractVector{T},
+    x::AbstractVector{T};
+    kwargs...,
+) where {T}
     n = lmo.dim
-    direction = lmo.append_by_column ? reshape(direction, (n, n)) : transpose(reshape(direction, (n, n)))
+    direction =
+        lmo.append_by_column ? reshape(direction, (n, n)) : transpose(reshape(direction, (n, n)))
     x = lmo.append_by_column ? reshape(x, (n, n)) : transpose(reshape(x, (n, n)))
     m = Boscia.compute_inface_extreme_point(lmo, direction, x; kwargs...)
     m = if lmo.append_by_column
-            # Convert sparse matrix to sparse vector by columns
-            I, J, V = SparseArrays.findnz(m)
-            linear_indices = (J .- 1) .* n .+ I
-            SparseArrays.sparsevec(linear_indices, V, n^2)
-        else
-            # Convert sparse matrix to sparse vector by rows (transpose first)
-            mt = SparseArrays.sparse(LinearAlgebra.transpose(m))
-            I, J, V = SparseArrays.findnz(mt)
-            linear_indices = (J .- 1) .* n .+ I
-            SparseArrays.sparsevec(linear_indices, V, n^2)
-        end
-    
+        # Convert sparse matrix to sparse vector by columns
+        I, J, V = SparseArrays.findnz(m)
+        linear_indices = (J .- 1) .* n .+ I
+        SparseArrays.sparsevec(linear_indices, V, n^2)
+    else
+        # Convert sparse matrix to sparse vector by rows (transpose first)
+        mt = SparseArrays.sparse(LinearAlgebra.transpose(m))
+        I, J, V = SparseArrays.findnz(mt)
+        linear_indices = (J .- 1) .* n .+ I
+        SparseArrays.sparsevec(linear_indices, V, n^2)
+    end
+
     return m
 end
 
@@ -284,11 +293,11 @@ end
 LMO-like operation which computes a vertex minimizing in `direction` on the face defined by the current fixings.
 Fixings are maintained by the oracle (or deduced from `x` itself).
 """
-function Boscia.dicg_maximum_step(lmo::BirkhoffLMO, direction, x; kwargs...)
+function FrankWolfe.dicg_maximum_step(lmo::BirkhoffLMO, direction, x; kwargs...)
     n = lmo.dim
     T = promote_type(eltype(x), eltype(direction))
     gamma_max = one(T)
-    
+
     for idx in eachindex(x)
         if direction[idx] != 0.0
             # iterate already on the boundary
@@ -308,7 +317,7 @@ function Boscia.dicg_maximum_step(lmo::BirkhoffLMO, direction, x; kwargs...)
 
 end
 
-function Boscia.is_decomposition_invariant_oracle(lmo::BirkhoffLMO)
+function FrankWolfe.is_decomposition_invariant_oracle(lmo::BirkhoffLMO)
     return true
 end
 
@@ -586,4 +595,3 @@ function Boscia.check_feasibility(blmo::BirkhoffLMO)
 
     return Boscia.OPTIMAL
 end
-
