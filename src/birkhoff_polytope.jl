@@ -4,7 +4,7 @@
 A bounded LMO for the Birkhoff polytope. This oracle computes an extreme point subject to  
 node-specific bounds on the integer variables.
 """
-mutable struct BirkhoffLMO <: Boscia.BoundedLinearMinimizationOracle
+mutable struct BirkhoffLMO <: FrankWolfe.LinearMinimizationOracle
     append_by_column::Bool
     dim::Int
     lower_bounds::Vector{Float64}
