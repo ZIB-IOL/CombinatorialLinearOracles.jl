@@ -1,5 +1,5 @@
 """
-    BirkhoffLMO
+    BirkhoffLMO(dim, int_vars; append_by_column=true, atol=1e-6, rtol=1e-3)
 
 A bounded Linear Minimization Oracle (LMO) for the Birkhoff polytope. The oracle
 computes extreme points (permutation matrices) possibly under node-specific bound
