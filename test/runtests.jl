@@ -68,18 +68,25 @@ end
     N = 500
     Random.seed!(1645)
     g = Graphs.complete_graph(N)
+    lmo = CO.SpanningTreeLMO(g)
     iter = collect(Graphs.edges(g))
     M = length(iter)
-    direction = randn(M)
-    lmo = CO.SpanningTreeLMO(g)
-    v = FrankWolfe.compute_extreme_point(lmo, direction)
-    tree = eltype(iter)[]
-    for i in 1:M
-        if (v[i] == 1)
-            push!(tree, iter[i])
+    @testset "Basic tree properties" begin
+        direction = randn(M) .- 100
+        v = FrankWolfe.compute_extreme_point(lmo, direction)
+        tree = Vector{eltype(iter)}()
+        for i in 1:M
+            if (v[i] == 1)
+                push!(tree, iter[i])
+            end
         end
+        @test Graphs.is_tree(SimpleGraphFromIterator(tree))
     end
-    @test Graphs.is_tree(SimpleGraphFromIterator(tree))
+    @testset "Test correctness for negative direction" begin
+        direction = collect(-(1:M))
+        v = FrankWolfe.compute_extreme_point(lmo, direction)
+        @test dot(v, direction) < -4e-7
+    end
 end
 
 @testset "Shortest path" begin
