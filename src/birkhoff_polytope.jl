@@ -42,11 +42,6 @@ BirkhoffLMO(dim, int_vars; append_by_column=true, atol=1e-6, rtol=1e-3) = Birkho
     rtol,
 )
 
-"""
-    BirkhoffLMO(dim; append_by_column=true, atol=1e-6, rtol=1e-3)
-
-Constructor for a continuous Birkhoff LMO (no integer variables).
-"""
 BirkhoffLMO(dim; append_by_column=true, atol=1e-6, rtol=1e-3) = BirkhoffLMO(
     append_by_column,
     dim,
