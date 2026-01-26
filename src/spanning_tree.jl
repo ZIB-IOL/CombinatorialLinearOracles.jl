@@ -18,11 +18,13 @@ function FrankWolfe.compute_extreme_point(
     N = length(direction)
     iter = collect(Graphs.edges(lmo.graph))
     distmx = spzeros(N, N)
+    min_weight = minimum(direction)
+    # we add a positive offset for negative weights
+    # not changing optimal solutions since all trees have the same # of edges
+    offset = min_weight > 0 ? zero(min_weight) : 1 - min_weight
     for idx in 1:N
-        if (direction[idx] > 0)
-            distmx[src(iter[idx]), dst(iter[idx])] = direction[idx]
-            distmx[dst(iter[idx]), src(iter[idx])] = direction[idx]
-        end
+        distmx[src(iter[idx]), dst(iter[idx])] = direction[idx] + offset
+        distmx[dst(iter[idx]), src(iter[idx])] = direction[idx] + offset
     end
     span = Graphs.kruskal_mst(lmo.graph, distmx)
     v = spzeros(N)
