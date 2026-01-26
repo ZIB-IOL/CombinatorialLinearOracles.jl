@@ -22,7 +22,7 @@ Graphs = "1"
 GraphsFlows = "0.1"
 GraphsMatching = "0.2"
 Hungarian = "0.7.0"
-LinearAlgebra = "1.12.0"
+LinearAlgebra = "1"
 MathOptInterface = "1"
 julia = "1"
 
