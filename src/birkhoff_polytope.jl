@@ -4,7 +4,7 @@
 A bounded Linear Minimization Oracle (LMO) for the Birkhoff polytope. The oracle
 computes extreme points (permutation matrices) possibly under node-specific bound
 constraints on a subset of integer variables. It also supports mixed-integer
-variants, partial fixings, and in-face oracles used by DiCG/BCG-like methods.
+variants, partial fixings(reduced maps), and in-face oracles used by DICG-like methods.
 """
 mutable struct BirkhoffLMO <: FrankWolfe.LinearMinimizationOracle
     append_by_column::Bool
@@ -59,15 +59,6 @@ BirkhoffLMO(dim; append_by_column=true, atol=1e-6, rtol=1e-3) = BirkhoffLMO(
 
 ## Necessary
 
-"""
-    FrankWolfe.compute_extreme_point(lmo::BirkhoffLMO, d::AbstractMatrix{T}; kwargs...) where {T}
-
-Compute an extreme point (a permutation matrix) minimizing the linear form
-`⟨d, X⟩` over the current feasible face of the (possibly reduced) Birkhoff polytope,
-subject to integer bounds and fixings maintained by `lmo`. 
-
-Return a sparse `n×n` matrix with `0/1` entries representing the selected permutation.
-"""
 function FrankWolfe.compute_extreme_point(
     lmo::BirkhoffLMO,
     d::AbstractMatrix{T};
@@ -146,13 +137,6 @@ function FrankWolfe.compute_extreme_point(
     return m
 end
 
-"""
-    FrankWolfe.compute_extreme_point(lmo::BirkhoffLMO, d::AbstractVector{T}; kwargs...) where {T}
-
-Vector form of [`compute_extreme_point`](@ref), where `d` is a vectorized cost.
-Handles the reshape/transposition according to `append_by_column` and returns a
-sparse vectorized permutation of length `n^2`.
-"""
 function FrankWolfe.compute_extreme_point(
     lmo::BirkhoffLMO,
     d::AbstractVector{T};
@@ -176,15 +160,6 @@ function FrankWolfe.compute_extreme_point(
     return m
 end
 
-"""
-    FrankWolfe.compute_inface_extreme_point(lmo::BirkhoffLMO, direction::AbstractMatrix{T}, x::AbstractMatrix{T}; kwargs...) where {T}
-
-Compute a vertex that minimizes the linear form `⟨direction, X⟩` on the minimal face containing 
-the current iterate `x`, given current fixings and bounds. Entries already at `1` and `0` in
-`x` are kept fixed.
-
-Return a sparse `n×n` permutation matrix consistent with the in-face constraints.
-"""
 function FrankWolfe.compute_inface_extreme_point(
     lmo::BirkhoffLMO,
     direction::AbstractMatrix{T},
@@ -292,12 +267,6 @@ function FrankWolfe.compute_inface_extreme_point(
     return m
 end
 
-"""
-    FrankWolfe.compute_inface_extreme_point(lmo::BirkhoffLMO, direction::AbstractVector{T}, x::AbstractVector{T}; kwargs...) where {T}
-
-Vector form of the in-face oracle; reshapes inputs/outputs according to
-`append_by_column` and returns a sparse vectorized permutation.
-"""
 function FrankWolfe.compute_inface_extreme_point(
     lmo::BirkhoffLMO,
     direction::AbstractVector{T},
@@ -325,14 +294,6 @@ function FrankWolfe.compute_inface_extreme_point(
     return m
 end
 
-"""
-    FrankWolfe.dicg_maximum_step(lmo::BirkhoffLMO, direction, x; kwargs...)
-
-Compute the maximum feasible step-size `γ_max` along a given direction
-for DICG updates on the hypercube constraints `0 ≤ x ≤ 1`. If moving in the
-positive (increasing) direction hits the `1`-bound or in the negative (decreasing)
-direction hits the `0`-bound, the step is clipped accordingly.
-"""
 function FrankWolfe.dicg_maximum_step(lmo::BirkhoffLMO, direction, x; kwargs...)
     n = lmo.dim
     T = promote_type(eltype(x), eltype(direction))
@@ -357,22 +318,10 @@ function FrankWolfe.dicg_maximum_step(lmo::BirkhoffLMO, direction, x; kwargs...)
 
 end
 
-"""
-    FrankWolfe.is_decomposition_invariant_oracle(lmo::BirkhoffLMO)
-
-Indicate that this oracle is decomposition invariant.
-"""
 function FrankWolfe.is_decomposition_invariant_oracle(lmo::BirkhoffLMO)
     return true
 end
 
-"""
-    Boscia.is_linear_feasible(blmo::BirkhoffLMO, v::AbstractVector)
-
-Check whether vector `v` is feasible for the Birkhoff polytope (row/column sums
-are `1` under the configured vectorization) and consistent with the current
-integer bounds `lower_bounds/upper_bounds` for indices in `int_vars`.
-"""
 function Boscia.is_linear_feasible(blmo::BirkhoffLMO, v::AbstractVector)
     for (i, int_var) in enumerate(blmo.int_vars)
         if !(
@@ -400,12 +349,6 @@ function Boscia.is_linear_feasible(blmo::BirkhoffLMO, v::AbstractVector)
     return true
 end
 
-"""
-    Boscia.build_global_bounds(blmo::BirkhoffLMO, integer_variables)
-
-Build a `Boscia.IntegerBounds()` object from the current lower/upper bounds stored
-in the oracle for all integer variables.
-"""
 function Boscia.build_global_bounds(blmo::BirkhoffLMO, integer_variables)
     global_bounds = Boscia.IntegerBounds()
     for (idx, int_var) in enumerate(blmo.int_vars)
@@ -415,58 +358,27 @@ function Boscia.build_global_bounds(blmo::BirkhoffLMO, integer_variables)
     return global_bounds
 end
 
-"""
-    Boscia.get_list_of_variables(blmo::BirkhoffLMO)
-
-Return the number of variables (`n = dim^2`) and the list of their linear indices
-`1:n` under the current storage order.
-"""
 function Boscia.get_list_of_variables(blmo::BirkhoffLMO)
     n = blmo.dim^2
     return n, collect(1:n)
 end
 
-"""
-    Boscia.get_integer_variables(blmo::BirkhoffLMO)
-
-Return the vector of linear indices of integer-constrained variables.
-"""
 function Boscia.get_integer_variables(blmo::BirkhoffLMO)
     return blmo.int_vars
 end
 
-"""
-    Boscia.get_int_var(blmo::BirkhoffLMO, cidx)
-
-Map the internal bound index `cidx` to its corresponding variable linear index.
-"""
 function Boscia.get_int_var(blmo::BirkhoffLMO, cidx)
     return blmo.int_vars[cidx]
 end
 
-"""
-    Boscia.get_lower_bound_list(blmo::BirkhoffLMO)
-
-Return the list of indices for the lower-bound constraints (i.e., `1:length(lower_bounds)`).
-"""
 function Boscia.get_lower_bound_list(blmo::BirkhoffLMO)
     return collect(1:length(blmo.lower_bounds))
 end
 
-"""
-    Boscia.get_upper_bound_list(blmo::BirkhoffLMO)
-
-Return the list of indices for the upper-bound constraints (i.e., `1:length(upper_bounds)`).
-"""
 function Boscia.get_upper_bound_list(blmo::BirkhoffLMO)
     return collect(1:length(blmo.upper_bounds))
 end
 
-"""
-    Boscia.get_bound(blmo::BirkhoffLMO, c_idx, sense::Symbol)
-
-Read the bound value for constraint index `c_idx` with `sense ∈ {:lessthan, :greaterthan}`.
-"""
 function Boscia.get_bound(blmo::BirkhoffLMO, c_idx, sense::Symbol)
     if sense == :lessthan
         return blmo.upper_bounds[c_idx]
@@ -483,9 +395,8 @@ end
     Boscia.set_bound!(blmo::BirkhoffLMO, c_idx, value, sense::Symbol)
 
 Change the value of an existing bound constraint at index `c_idx` with
-`sense ∈ {:lessthan, :greaterthan}`. If a lower bound is set to `1.0`, the
-corresponding `(i,j)` entry is fixed to one and the reduced index maps are
-refreshed on demand.
+`sense ∈ {:lessthan, :greaterthan}`. If a lower bound is set to `1.0`, `fixed_to_one_rows` and 
+`fixed_to_one_cols` are updated.
 """
 function Boscia.set_bound!(blmo::BirkhoffLMO, c_idx, value, sense::Symbol)
     # Reset the lmo if necessary
@@ -520,9 +431,8 @@ end
 """
     Boscia.delete_bounds!(blmo::BirkhoffLMO, cons_delete)
 
-Delete a collection of bounds given as pairs `(idx, sense)`. Lower bounds
-are set to `0.0`, upper bounds to `1.0`. Also rebuild the reduced index maps
-based on entries fixed to one.
+Delete a collection of bounds given as pairs `(idx, sense)` and rebuild the reduced index maps `index_map_rows` 
+and `index_map_cols` based on entries fixed to one.
 """
 function Boscia.delete_bounds!(blmo::BirkhoffLMO, cons_delete)
     for (d_idx, sense) in cons_delete
@@ -563,9 +473,8 @@ end
 """
     Boscia.add_bound_constraint!(blmo::BirkhoffLMO, key, value, sense::Symbol)
 
-Add or overwrite a single bound for the integer variable with linear index `key`.
-If a lower bound is set to `1.0`, the corresponding entry is fixed to one and the
-fixing bookkeeping is updated.
+Add or overwrite a single bound for the integer variable. If a lower bound is set to `1.0`, 
+update `fixed_to_one_rows` and `fixed_to_one_cols`.
 """
 function Boscia.add_bound_constraint!(blmo::BirkhoffLMO, key, value, sense::Symbol)
     idx = findfirst(x -> x == key, blmo.int_vars)
@@ -594,43 +503,20 @@ end
 
 ## Checks
 
-"""
-    Boscia.is_constraint_on_int_var(blmo::BirkhoffLMO, c_idx, int_vars)
-
-Check whether the subject of bound index `c_idx` corresponds to an integer variable
-in the provided `int_vars` set.
-"""
 function Boscia.is_constraint_on_int_var(blmo::BirkhoffLMO, c_idx, int_vars)
     return blmo.int_vars[c_idx] in int_vars
 end
 
-"""
-    Boscia.is_bound_in(blmo::BirkhoffLMO, c_idx, bounds)
-
-Return `true` if there is a bound for the variable targeted by constraint index
-`c_idx` inside the `bounds` dictionary-like structure.
-"""
 function Boscia.is_bound_in(blmo::BirkhoffLMO, c_idx, bounds)
     return haskey(bounds, blmo.int_vars[c_idx])
 end
 
-"""
-    Boscia.has_integer_constraint(blmo::BirkhoffLMO, idx)
-
-Return `true` if linear index `idx` is constrained to be integer (i.e., in `int_vars`).
-"""
 function Boscia.has_integer_constraint(blmo::BirkhoffLMO, idx)
     return idx in blmo.int_vars
 end
 
 ## Safety Functions
 
-"""
-    Boscia.build_LMO_correct(blmo::BirkhoffLMO, node_bounds)
-
-Verify that the bounds recorded in `blmo` match those in
-`node_bounds` (for both lower and upper maps). Returns `true` if consistent.
-"""
 function Boscia.build_LMO_correct(blmo::BirkhoffLMO, node_bounds)
     for key in keys(node_bounds.lower_bounds)
         idx = findfirst(x -> x == key, blmo.int_vars)
@@ -654,7 +540,7 @@ end
 
 Quick feasibility test for the bounds alone (without a specific `x`). It validates
 that `ub ≥ lb` componentwise and that row/column sums can still achieve `1` given
-the accumulated lower/upper bounds on the integer variables present in each row/column.
+the current lower/upper bounds.
 """
 function Boscia.check_feasibility(blmo::BirkhoffLMO)
     for (lb, ub) in zip(blmo.lower_bounds, blmo.upper_bounds)
