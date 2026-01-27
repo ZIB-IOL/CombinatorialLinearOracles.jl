@@ -1,8 +1,10 @@
 """
-	BirkhoffLMO
+    BirkhoffLMO(dim, int_vars; append_by_column=true, atol=1e-6, rtol=1e-3)
 
-A bounded LMO for the Birkhoff polytope. This oracle computes an extreme point subject to  
-node-specific bounds on the integer variables.
+A bounded Linear Minimization Oracle (LMO) for the Birkhoff polytope. The oracle
+computes extreme points (permutation matrices) possibly under node-specific bound
+constraints on a subset of integer variables. It also supports mixed-integer
+variants, partial fixings (reduced maps), and in-face oracles used by DICG-like methods.
 """
 mutable struct BirkhoffLMO <: FrankWolfe.LinearMinimizationOracle
     append_by_column::Bool
@@ -17,10 +19,14 @@ mutable struct BirkhoffLMO <: FrankWolfe.LinearMinimizationOracle
     updated_lmo::Bool
     atol::Float64
     rtol::Float64
-    boscia_use::Bool
 end
 
-# return an integer-type BirkhoffLMO
+"""
+    BirkhoffLMO(dim, int_vars; append_by_column=true, atol=1e-6, rtol=1e-3)
+
+Constructor for a mixed-integer Birkhoff LMO. All variables listed in
+`int_vars` are treated as integer with default bounds `[0,1]`.
+"""
 BirkhoffLMO(dim, int_vars; append_by_column=true, atol=1e-6, rtol=1e-3) = BirkhoffLMO(
     append_by_column,
     dim,
@@ -34,10 +40,8 @@ BirkhoffLMO(dim, int_vars; append_by_column=true, atol=1e-6, rtol=1e-3) = Birkho
     true,
     atol,
     rtol,
-    true,
 )
 
-# return a continuous BirkhoffLMO
 BirkhoffLMO(dim; append_by_column=true, atol=1e-6, rtol=1e-3) = BirkhoffLMO(
     append_by_column,
     dim,
@@ -51,15 +55,15 @@ BirkhoffLMO(dim; append_by_column=true, atol=1e-6, rtol=1e-3) = BirkhoffLMO(
     true,
     atol,
     rtol,
-    false,
 )
 
 ## Necessary
 
-"""
-Computes the extreme point given an direction d, the current lower and upper bounds on the integer variables, and the set of integer variables.
-"""
-function Boscia.compute_extreme_point(lmo::BirkhoffLMO, d::AbstractMatrix{T}; kwargs...) where {T}
+function FrankWolfe.compute_extreme_point(
+    lmo::BirkhoffLMO,
+    d::AbstractMatrix{T};
+    kwargs...,
+) where {T}
     n = lmo.dim
 
     fixed_to_one_rows = lmo.fixed_to_one_rows
@@ -133,7 +137,11 @@ function Boscia.compute_extreme_point(lmo::BirkhoffLMO, d::AbstractMatrix{T}; kw
     return m
 end
 
-function Boscia.compute_extreme_point(lmo::BirkhoffLMO, d::AbstractVector{T}; kwargs...) where {T}
+function FrankWolfe.compute_extreme_point(
+    lmo::BirkhoffLMO,
+    d::AbstractVector{T};
+    kwargs...,
+) where {T}
     n = lmo.dim
     d = lmo.append_by_column ? reshape(d, (n, n)) : transpose(reshape(d, (n, n)))
     m = Boscia.compute_extreme_point(lmo, d; kwargs...)
@@ -152,9 +160,6 @@ function Boscia.compute_extreme_point(lmo::BirkhoffLMO, d::AbstractVector{T}; kw
     return m
 end
 
-"""
-Computes the extreme point given an direction d, the current lower and upper bounds on the integer variables, and the set of integer variables.
-"""
 function FrankWolfe.compute_inface_extreme_point(
     lmo::BirkhoffLMO,
     direction::AbstractMatrix{T},
@@ -186,7 +191,7 @@ function FrankWolfe.compute_inface_extreme_point(
         for i in 1:nreduced
             row_orig = index_map_rows[i]
             col_orig = index_map_cols[j]
-            if x[row_orig, col_orig] >= 1-eps()
+            if x[row_orig, col_orig] >= 1 - eps()
                 push!(fixed_to_one_rows, row_orig)
                 push!(fixed_to_one_cols, col_orig)
 
@@ -210,9 +215,9 @@ function FrankWolfe.compute_inface_extreme_point(
         for i in 1:nreduced
             row_orig = index_map_rows[i]
             if lmo.append_by_column
-                orig_linear_idx = (col_orig-1)*n+row_orig
+                orig_linear_idx = (col_orig - 1) * n + row_orig
             else
-                orig_linear_idx = (row_orig-1)*n+col_orig
+                orig_linear_idx = (row_orig - 1) * n + col_orig
             end
             if x[row_orig, col_orig] <= eps()
                 if lmo.append_by_column
@@ -289,10 +294,6 @@ function FrankWolfe.compute_inface_extreme_point(
     return m
 end
 
-"""
-LMO-like operation which computes a vertex minimizing in `direction` on the face defined by the current fixings.
-Fixings are maintained by the oracle (or deduced from `x` itself).
-"""
 function FrankWolfe.dicg_maximum_step(lmo::BirkhoffLMO, direction, x; kwargs...)
     n = lmo.dim
     T = promote_type(eltype(x), eltype(direction))
@@ -321,9 +322,6 @@ function FrankWolfe.is_decomposition_invariant_oracle(lmo::BirkhoffLMO)
     return true
 end
 
-"""
-The sum of each row and column has to be equal to 1.
-"""
 function Boscia.is_linear_feasible(blmo::BirkhoffLMO, v::AbstractVector)
     for (i, int_var) in enumerate(blmo.int_vars)
         if !(
@@ -351,7 +349,6 @@ function Boscia.is_linear_feasible(blmo::BirkhoffLMO, v::AbstractVector)
     return true
 end
 
-# Read global bounds from the problem.
 function Boscia.build_global_bounds(blmo::BirkhoffLMO, integer_variables)
     global_bounds = Boscia.IntegerBounds()
     for (idx, int_var) in enumerate(blmo.int_vars)
@@ -361,34 +358,27 @@ function Boscia.build_global_bounds(blmo::BirkhoffLMO, integer_variables)
     return global_bounds
 end
 
-# Get list of variables indices. 
-# If the problem has n variables, they are expected to contiguous and ordered from 1 to n.
 function Boscia.get_list_of_variables(blmo::BirkhoffLMO)
     n = blmo.dim^2
     return n, collect(1:n)
 end
 
-# Get list of integer variables
 function Boscia.get_integer_variables(blmo::BirkhoffLMO)
     return blmo.int_vars
 end
 
-# Get the index of the integer variable the bound is working on.
 function Boscia.get_int_var(blmo::BirkhoffLMO, cidx)
     return blmo.int_vars[cidx]
 end
 
-# Get the list of lower bounds.
 function Boscia.get_lower_bound_list(blmo::BirkhoffLMO)
     return collect(1:length(blmo.lower_bounds))
 end
 
-# Get the list of upper bounds.
 function Boscia.get_upper_bound_list(blmo::BirkhoffLMO)
     return collect(1:length(blmo.upper_bounds))
 end
 
-# Read bound value for c_idx.
 function Boscia.get_bound(blmo::BirkhoffLMO, c_idx, sense::Symbol)
     if sense == :lessthan
         return blmo.upper_bounds[c_idx]
@@ -401,7 +391,6 @@ end
 
 ## Changing the bounds constraints.
 
-# Change the value of the bound c_idx.
 function Boscia.set_bound!(blmo::BirkhoffLMO, c_idx, value, sense::Symbol)
     # Reset the lmo if necessary
     if blmo.updated_lmo
@@ -432,7 +421,12 @@ function Boscia.set_bound!(blmo::BirkhoffLMO, c_idx, value, sense::Symbol)
     end
 end
 
-# Delete bounds.
+"""
+    Boscia.delete_bounds!(blmo::BirkhoffLMO, cons_delete)
+
+Delete a collection of bounds given as pairs `(idx, sense)` and rebuild the reduced index maps `index_map_rows` 
+and `index_map_cols` based on entries fixed to one.
+"""
 function Boscia.delete_bounds!(blmo::BirkhoffLMO, cons_delete)
     for (d_idx, sense) in cons_delete
         if sense == :greaterthan
@@ -469,7 +463,12 @@ function Boscia.delete_bounds!(blmo::BirkhoffLMO, cons_delete)
     return true
 end
 
-# Add bound constraint.
+"""
+    Boscia.add_bound_constraint!(blmo::BirkhoffLMO, key, value, sense::Symbol)
+
+Add or overwrite a single bound for the integer variable. If a lower bound is set to `1.0`, 
+update `fixed_to_one_rows` and `fixed_to_one_cols`.
+"""
 function Boscia.add_bound_constraint!(blmo::BirkhoffLMO, key, value, sense::Symbol)
     idx = findfirst(x -> x == key, blmo.int_vars)
     if sense == :greaterthan
@@ -497,25 +496,20 @@ end
 
 ## Checks
 
-# Check if the subject of the bound c_idx is an integer variable (recorded in int_vars).
 function Boscia.is_constraint_on_int_var(blmo::BirkhoffLMO, c_idx, int_vars)
     return blmo.int_vars[c_idx] in int_vars
 end
 
-# To check if there is bound for the variable in the global or node bounds.
 function Boscia.is_bound_in(blmo::BirkhoffLMO, c_idx, bounds)
     return haskey(bounds, blmo.int_vars[c_idx])
 end
 
-# Has variable an integer constraint?
 function Boscia.has_integer_constraint(blmo::BirkhoffLMO, idx)
     return idx in blmo.int_vars
 end
 
 ## Safety Functions
 
-# Check if the bounds were set correctly in build_LMO.
-# Safety check only.
 function Boscia.build_LMO_correct(blmo::BirkhoffLMO, node_bounds)
     for key in keys(node_bounds.lower_bounds)
         idx = findfirst(x -> x == key, blmo.int_vars)
@@ -534,6 +528,13 @@ end
 
 ## Optional
 
+"""
+    Boscia.check_feasibility(blmo::BirkhoffLMO)
+
+Quick feasibility test for the bounds alone (without a specific `x`). It validates
+that `ub ≥ lb` componentwise and that row/column sums can still achieve `1` given
+the current lower/upper bounds.
+"""
 function Boscia.check_feasibility(blmo::BirkhoffLMO)
     for (lb, ub) in zip(blmo.lower_bounds, blmo.upper_bounds)
         if ub < lb
