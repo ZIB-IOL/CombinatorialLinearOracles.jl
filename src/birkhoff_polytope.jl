@@ -391,13 +391,6 @@ end
 
 ## Changing the bounds constraints.
 
-"""
-    Boscia.set_bound!(blmo::BirkhoffLMO, c_idx, value, sense::Symbol)
-
-Change the value of an existing bound constraint at index `c_idx` with
-`sense ∈ {:lessthan, :greaterthan}`. If a lower bound is set to `1.0`, `fixed_to_one_rows` and 
-`fixed_to_one_cols` are updated.
-"""
 function Boscia.set_bound!(blmo::BirkhoffLMO, c_idx, value, sense::Symbol)
     # Reset the lmo if necessary
     if blmo.updated_lmo
