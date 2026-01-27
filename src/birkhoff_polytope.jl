@@ -4,7 +4,7 @@
 A bounded Linear Minimization Oracle (LMO) for the Birkhoff polytope. The oracle
 computes extreme points (permutation matrices) possibly under node-specific bound
 constraints on a subset of integer variables. It also supports mixed-integer
-variants, partial fixings(reduced maps), and in-face oracles used by DICG-like methods.
+variants, partial fixings (reduced maps), and in-face oracles used by DICG-like methods.
 """
 mutable struct BirkhoffLMO <: FrankWolfe.LinearMinimizationOracle
     append_by_column::Bool
