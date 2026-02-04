@@ -50,7 +50,7 @@ end
     for i in 1:M
         adj_mat[src(iter[i]), dst(iter[i])] = direction[i]
     end
-    match_result = GraphsMatching.maximum_weight_matching(g, HiGHS.Optimizer, adj_mat)
+    match_result = GraphsMatching.maximum_weight_matching(g, HiGHS.Optimizer, -adj_mat)
     v_sol = spzeros(M)
     K = length(match_result.mate)
     for i in 1:K

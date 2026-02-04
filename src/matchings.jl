@@ -2,8 +2,7 @@
 """
 MatchingLMO{G}(g::Graphs)
 
-Return a vector v corresponding to edges(g), where if v[i] = 1, 
-the edge i is in the maximum weight matching, and if v[i] = 0, the edge i is not in the matching.
+Return an incidence vector v of the edges of `g`, ordered as `edges(g)` for a minimum-weight matching.
 """
 struct MatchingLMO{G} <: FrankWolfe.LinearMinimizationOracle
     graph::G
@@ -16,7 +15,11 @@ function FrankWolfe.compute_extreme_point(
     kwargs...,
 ) where {M}
     N = length(direction)
-    v = spzeros(N)
+    if v === nothing
+        v = spzeros(N)
+    else
+        v .= 0
+    end
     iter = collect(edges(lmo.graph))
     g = SimpleGraphFromIterator(iter)
     l = nv(g)
@@ -24,8 +27,8 @@ function FrankWolfe.compute_extreme_point(
     w = Dict{typeof(iter[1]),typeof(direction[1])}()
     for i in 1:N
         add_edge!(g, src(iter[i]) + l, dst(iter[i]) + l)
-        w[iter[i]] = -direction[i]
-        w[Edge(src(iter[i]) + l, dst(iter[i]) + l)] = -direction[i]
+        w[iter[i]] = direction[i]
+        w[Edge(src(iter[i]) + l, dst(iter[i]) + l)] = direction[i]
     end
 
     for i in 1:l
@@ -50,12 +53,16 @@ end
 """
 PerfectMatchingLMO{G}(g::Graphs)
 
-Return a vector v corresponding to edges(g), where if v[i] = 1, 
-the edge i is in the matching, and if v[i] = 0, the edge i is not in the matching.
-If there is not possible perfect matching, all elements of v are set to 0.  
+Return the incidence vector of a minimum-weight perfect matching, `v` is ordered as `edges(g)`.
+The constructor verifies that the graph admits a perfect matching.
 """
 struct PerfectMatchingLMO{G} <: FrankWolfe.LinearMinimizationOracle
     graph::G
+end
+
+function PerfectMatchingLMO(graph::G) where {G}
+    @assert nv(graph) % 2 == 0
+    return PerfectMatchingLMO{G}(graph)
 end
 
 function FrankWolfe.compute_extreme_point(
@@ -65,9 +72,10 @@ function FrankWolfe.compute_extreme_point(
     kwargs...,
 ) where {M}
     N = length(direction)
-    v = spzeros(N)
-    if (nv(lmo.graph) % 2 != 0)
-        return v
+    if v === nothing
+        v = spzeros(N)
+    else
+        v .= 0
     end
     iter = collect(Graphs.edges(lmo.graph))
     w = Dict{typeof(iter[1]),typeof(direction[1])}()
