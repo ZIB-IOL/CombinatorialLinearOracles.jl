@@ -61,6 +61,8 @@ end
         end
     end
     @test v_sol == v
+    v2 = FrankWolfe.compute_extreme_point(lmo, ones(M))
+    @test norm(v2) == 0
 end
 
 

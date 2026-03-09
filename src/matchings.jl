@@ -1,11 +1,28 @@
 
 """
-MatchingLMO{G}(g::Graphs)
+    MatchingLMO{G}(g::G)
 
-Return an incidence vector v of the edges of `g`, ordered as `edges(g)` for a minimum-weight matching.
+Return an incidence vector v of the edges of `g` which has to be a `Graphs.AbstractGraph`, ordered as `edges(g)` for a minimum-weight matching.
+
+Uses a reduction of the problem to minimum-weight perfect matching:
+(see https://homepages.cwi.nl/~schaefer/ftp/pdf/masters-thesis.pdf section 1.5.1).
 """
 struct MatchingLMO{G} <: FrankWolfe.LinearMinimizationOracle
-    graph::G
+    original_graph::G
+    extended_graph::G
+end
+
+function MatchingLMO(original_graph::G) where {G}
+    extended_graph = copy(original_graph)
+    nvtx = nv(original_graph)
+    add_vertices!(extended_graph, nvtx)
+    for edge in edges(original_graph)
+        add_edge!(extended_graph, src(edge) + nvtx, dst(edge) + nvtx)
+    end
+    for i in 1:nvtx
+        add_edge!(extended_graph, i, i + nvtx)
+    end
+    return MatchingLMO{G}(original_graph, extended_graph)
 end
 
 function FrankWolfe.compute_extreme_point(
@@ -16,33 +33,28 @@ function FrankWolfe.compute_extreme_point(
 ) where {M}
     N = length(direction)
     if v === nothing
-        v = spzeros(N)
+        v = spzeros(Int, N)
     else
         v .= 0
     end
-    iter = collect(edges(lmo.graph))
-    g = SimpleGraphFromIterator(iter)
-    l = nv(g)
-    add_vertices!(g, l)
-    w = Dict{typeof(iter[1]),typeof(direction[1])}()
-    for i in 1:N
-        add_edge!(g, src(iter[i]) + l, dst(iter[i]) + l)
-        w[iter[i]] = direction[i]
-        w[Edge(src(iter[i]) + l, dst(iter[i]) + l)] = direction[i]
+    nvtx = nv(lmo.original_graph)
+    w = Dict{edgetype(lmo.original_graph), eltype(direction)}()
+    for (i, edge) in enumerate(edges(lmo.original_graph))
+        w[edge] = direction[i]
+        w[Edge(src(edge) + nvtx, dst(edge) + nvtx)] = direction[i]
     end
 
-    for i in 1:l
-        add_edge!(g, i, i + l)
-        w[Edge(i, i + l)] = 0
+    for i in 1:nvtx
+        w[Edge(i, i + nvtx)] = 0
     end
 
-    match = GraphsMatching.minimum_weight_perfect_matching(g, w)
+    match = GraphsMatching.minimum_weight_perfect_matching(lmo.extended_graph, w)
 
     K = length(match.mate)
-    for i in 1:K
-        for j in 1:N
-            if (match.mate[i] == src(iter[j]) && dst(iter[j]) == i)
-                v[j] = 1
+    for (i, edge) in enumerate(edges(lmo.original_graph))
+        for k in 1:K
+            if match.mate[k] == src(edge) && dst(edge) == k
+                v[i] = 1
             end
         end
     end
@@ -58,11 +70,10 @@ The constructor verifies that the graph admits a perfect matching.
 """
 struct PerfectMatchingLMO{G} <: FrankWolfe.LinearMinimizationOracle
     graph::G
-end
-
-function PerfectMatchingLMO(graph::G) where {G}
-    @assert nv(graph) % 2 == 0
-    return PerfectMatchingLMO{G}(graph)
+    function PerfectMatchingLMO(graph::G) where {G}
+        @assert nv(graph) % 2 == 0
+        return new{G}(graph)
+    end
 end
 
 function FrankWolfe.compute_extreme_point(
