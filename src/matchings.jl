@@ -33,7 +33,7 @@ function FrankWolfe.compute_extreme_point(
 ) where {M}
     N = length(direction)
     if v === nothing
-        v = spzeros(N)
+        v = spzeros(Int, N)
     else
         v .= 0
     end
