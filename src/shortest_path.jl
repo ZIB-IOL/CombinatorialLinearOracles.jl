@@ -12,10 +12,21 @@ function ShortestPathLMO(graph, src_node, dst_node)
     @assert Graphs.has_path(graph, src_node, dst_node)
     dist_matrix = spzeros(Graphs.nv(graph), Graphs.nv(graph))
     edge_dict = Dict(Graphs.edges(graph) .=> 1:Graphs.ne(graph))
-    return ShortestPathLMO{eltype(dist_matrix), typeof(graph)}(graph, src_node, dst_node, dist_matrix, edge_dict)
+    return ShortestPathLMO{eltype(dist_matrix),typeof(graph)}(
+        graph,
+        src_node,
+        dst_node,
+        dist_matrix,
+        edge_dict,
+    )
 end
 
-function FrankWolfe.compute_extreme_point(lmo::ShortestPathLMO, direction; v=falses(ne(lmo.graph)), kwargs...)
+function FrankWolfe.compute_extreme_point(
+    lmo::ShortestPathLMO,
+    direction;
+    v=falses(ne(lmo.graph)),
+    kwargs...,
+)
     for (idx, edge) in enumerate(edges(lmo.graph))
         lmo.dist_matrix[src(edge), dst(edge)] = direction[idx]
     end
