@@ -98,6 +98,22 @@ function Boscia.bounded_compute_extreme_point(lmo::MatchingLMO, direction, lb, u
     return v
 end
 
+function Boscia.is_simple_linear_feasible(lmo::MatchingLMO, v)
+    vertex_matching = zeros(Graphs.nv(lmo.original_graph))
+    for (idx, edge) in enumerate(edges(lmo.original_graph))
+        if v[idx] ≈ 0
+            continue
+        end
+        vtx1, vtx2 = Tuple(edge)
+        vertex_matching[vtx1] += v[idx]
+        vertex_matching[vtx2] += v[idx]
+    end
+    # one vertex fractionally matched to multiple edges
+    if maximum(vertex_matching) >= 1 + 1e-4
+        return false
+    end
+    return true
+end
 
 """
 PerfectMatchingLMO{G}(g::Graphs)

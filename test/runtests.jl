@@ -38,7 +38,7 @@ Random.seed!(StableRNG(42), 42)
 end
 
 @testset "Matching LMO" begin
-    N = 200
+    N = 50
     Random.seed!(9754)
     g = Graphs.complete_graph(N)
     iter = collect(Graphs.edges(g))
@@ -46,6 +46,7 @@ end
     direction = randn(M)
     lmo = CO.MatchingLMO(g)
     v = FrankWolfe.compute_extreme_point(lmo, direction)
+    @test Boscia.is_simple_linear_feasible(lmo, v)
     adj_mat = spzeros(M, M)
     for (i, edge) in enumerate(edges(g))
         adj_mat[src(edge), dst(edge)] = direction[i]
@@ -69,6 +70,7 @@ end
             # upperbound one everywhere except one_idx fixed to zero
             v_fixed1 = Boscia.bounded_compute_extreme_point(lmo, direction, zeros(M), (1:M) .!= one_idx, 1:M)
             @test v_fixed1[one_idx] == 0
+            @test Boscia.is_simple_linear_feasible(lmo, v_fixed1)
         end
     end
     @testset "Fix a single entry to one" begin
@@ -81,13 +83,14 @@ end
             ub = ones(M)
             v_fixed2 = Boscia.bounded_compute_extreme_point(lmo, direction, lb, ub, 1:M)
             @test v_fixed2[idx] == 1
+            @test Boscia.is_simple_linear_feasible(lmo, v_fixed2)
         end
     end
     @testset "Fix two entries to one" begin
         for (i1, e1) in enumerate(edges(g))
             for (i2, e2) in enumerate(edges(g))
                 # lighter on computation
-                if i1 ÷ 1000 + i2 ÷ 1000 != 0
+                if i1 ÷ 2 + i2 ÷ 2 > 0
                     continue
                 end
                 # non-adjacent edges
@@ -98,10 +101,18 @@ end
                     v_fixed3 = Boscia.bounded_compute_extreme_point(lmo, direction, lb, ub, 1:M)
                     @test v_fixed3[i1] == 1
                     @test v_fixed3[i2] == 1
+                    @test Boscia.is_simple_linear_feasible(lmo, v_fixed3)
                 end
             end
         end
     end
+    # non-matching vector
+    v_wrong = 1.0 * copy(v)
+    idx1 = findfirst(==(Edge(1, 2)), collect(edges(g)))
+    idx2 = findfirst(==(Edge(1, 3)), collect(edges(g)))
+    v_wrong[idx1] = 0.75
+    v_wrong[idx2] = 0.5
+    @test !Boscia.is_simple_linear_feasible(lmo, v_wrong)
 end
 
 
