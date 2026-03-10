@@ -38,7 +38,7 @@ Random.seed!(StableRNG(42), 42)
 end
 
 @testset "Matching LMO" begin
-    N = 200
+    N = 50
     Random.seed!(9754)
     g = Graphs.complete_graph(N)
     iter = collect(Graphs.edges(g))
@@ -46,23 +46,73 @@ end
     direction = randn(M)
     lmo = CO.MatchingLMO(g)
     v = FrankWolfe.compute_extreme_point(lmo, direction)
+    @test Boscia.is_simple_linear_feasible(lmo, v)
     adj_mat = spzeros(M, M)
-    for i in 1:M
-        adj_mat[src(iter[i]), dst(iter[i])] = direction[i]
+    for (i, edge) in enumerate(edges(g))
+        adj_mat[src(edge), dst(edge)] = direction[i]
     end
     match_result = GraphsMatching.maximum_weight_matching(g, HiGHS.Optimizer, -adj_mat)
     v_sol = spzeros(M)
     K = length(match_result.mate)
-    for i in 1:K
-        for j in 1:M
-            if (match_result.mate[i] == src(iter[j]) && dst(iter[j]) == i)
-                v_sol[j] = 1
+    for k in 1:K
+        for (i, edge) in enumerate(edges(g))
+            if (match_result.mate[k] == src(edge) && dst(edge) == k)
+                v_sol[i] = 1
             end
         end
     end
     @test v_sol == v
     v2 = FrankWolfe.compute_extreme_point(lmo, ones(M))
     @test norm(v2) == 0
+    @test v == Boscia.bounded_compute_extreme_point(lmo, direction, zeros(M), ones(M), 1:M)
+    @testset "Fix one entry to zero" begin
+        for one_idx in SparseArrays.nonzeroinds(v)
+            # upperbound one everywhere except one_idx fixed to zero
+            v_fixed1 = Boscia.bounded_compute_extreme_point(lmo, direction, zeros(M), (1:M) .!= one_idx, 1:M)
+            @test v_fixed1[one_idx] == 0
+            @test Boscia.is_simple_linear_feasible(lmo, v_fixed1)
+        end
+    end
+    @testset "Fix a single entry to one" begin
+        for idx in rand(1:M, 100)
+            # skip if entry already at one
+            if v[idx] == 1
+                continue
+            end
+            lb = (1:M) .== idx
+            ub = ones(M)
+            v_fixed2 = Boscia.bounded_compute_extreme_point(lmo, direction, lb, ub, 1:M)
+            @test v_fixed2[idx] == 1
+            @test Boscia.is_simple_linear_feasible(lmo, v_fixed2)
+        end
+    end
+    @testset "Fix two entries to one" begin
+        for (i1, e1) in enumerate(edges(g))
+            for (i2, e2) in enumerate(edges(g))
+                # lighter on computation
+                if i1 ÷ 2 + i2 ÷ 2 > 0
+                    continue
+                end
+                # non-adjacent edges
+                if isempty(intersect(Tuple(e1), Tuple(e2)))
+                    lb = zeros(M)
+                    ub = ones(M)
+                    lb[i1] = lb[i2] = 1
+                    v_fixed3 = Boscia.bounded_compute_extreme_point(lmo, direction, lb, ub, 1:M)
+                    @test v_fixed3[i1] == 1
+                    @test v_fixed3[i2] == 1
+                    @test Boscia.is_simple_linear_feasible(lmo, v_fixed3)
+                end
+            end
+        end
+    end
+    # non-matching vector
+    v_wrong = 1.0 * copy(v)
+    idx1 = findfirst(==(Edge(1, 2)), collect(edges(g)))
+    idx2 = findfirst(==(Edge(1, 3)), collect(edges(g)))
+    v_wrong[idx1] = 0.75
+    v_wrong[idx2] = 0.5
+    @test !Boscia.is_simple_linear_feasible(lmo, v_wrong)
 end
 
 

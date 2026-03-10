@@ -61,6 +61,59 @@ function FrankWolfe.compute_extreme_point(
     return v
 end
 
+function Boscia.bounded_compute_extreme_point(lmo::MatchingLMO, direction, lb, ub, int_vars; kwargs...)
+    # any entry i fixed to zero -> use a positive direction, ensuring the edge is not taken
+    # any entry i fixed to one with neighbors (u, v) -> use positive direction for all other neighbors of u, of v
+    corrected_direction = copy(direction)
+    for (idx, edge) in enumerate(edges(lmo.original_graph))
+        if ub[idx] ≈ 0
+            @assert lb[idx] ≈ 0
+            corrected_direction[idx] = 1
+        elseif lb[idx] ≈ 1
+            @assert ub[idx] ≈ 1
+            (vtx1, vtx2) = Tuple(edge)
+            # negative cost ensures the edge is taken, since no neighbor will be in the matching
+            corrected_direction[idx] = -1
+            for (idx2, e2) in enumerate(edges(lmo.original_graph))
+                # check if e2 is adjacent to edge
+                # we want one of the two nodes to be the same
+                if xor(src(e2) in (vtx1, vtx2), dst(e2) in (vtx1, vtx2))
+                    # we should not have incompatible edges fixed to one
+                    @assert lb[idx2] ≈ 0 "incompatible edges $edge $e2"
+                    corrected_direction[idx2] = 1
+                end
+            end
+        end
+    end
+    v = FrankWolfe.compute_extreme_point(lmo, corrected_direction)
+    @debug begin
+        for idx in eachindex(direction)
+            if ub[idx] ≈ 0
+                @assert v[idx] ≈ 0
+            elseif lb[idx] ≈ 1
+                @assert v[idx] ≈ 1
+            end
+        end
+    end
+    return v
+end
+
+function Boscia.is_simple_linear_feasible(lmo::MatchingLMO, v)
+    vertex_matching = zeros(Graphs.nv(lmo.original_graph))
+    for (idx, edge) in enumerate(edges(lmo.original_graph))
+        if v[idx] ≈ 0
+            continue
+        end
+        vtx1, vtx2 = Tuple(edge)
+        vertex_matching[vtx1] += v[idx]
+        vertex_matching[vtx2] += v[idx]
+    end
+    # one vertex fractionally matched to multiple edges
+    if maximum(vertex_matching) >= 1 + 1e-4
+        return false
+    end
+    return true
+end
 
 """
 PerfectMatchingLMO{G}(g::Graphs)
