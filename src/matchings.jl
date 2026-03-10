@@ -38,7 +38,7 @@ function FrankWolfe.compute_extreme_point(
         v .= 0
     end
     nvtx = nv(lmo.original_graph)
-    w = Dict{edgetype(lmo.original_graph), eltype(direction)}()
+    w = Dict{edgetype(lmo.original_graph),eltype(direction)}()
     for (i, edge) in enumerate(edges(lmo.original_graph))
         w[edge] = direction[i]
         w[Edge(src(edge) + nvtx, dst(edge) + nvtx)] = direction[i]
@@ -61,7 +61,14 @@ function FrankWolfe.compute_extreme_point(
     return v
 end
 
-function Boscia.bounded_compute_extreme_point(lmo::MatchingLMO, direction, lb, ub, int_vars; kwargs...)
+function Boscia.bounded_compute_extreme_point(
+    lmo::MatchingLMO,
+    direction,
+    lb,
+    ub,
+    int_vars;
+    kwargs...,
+)
     # any entry i fixed to zero -> use a positive direction, ensuring the edge is not taken
     # any entry i fixed to one with neighbors (u, v) -> use positive direction for all other neighbors of u, of v
     corrected_direction = copy(direction)

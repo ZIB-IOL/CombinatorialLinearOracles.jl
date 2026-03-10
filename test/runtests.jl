@@ -68,7 +68,13 @@ end
     @testset "Fix one entry to zero" begin
         for one_idx in SparseArrays.nonzeroinds(v)
             # upperbound one everywhere except one_idx fixed to zero
-            v_fixed1 = Boscia.bounded_compute_extreme_point(lmo, direction, zeros(M), (1:M) .!= one_idx, 1:M)
+            v_fixed1 = Boscia.bounded_compute_extreme_point(
+                lmo,
+                direction,
+                zeros(M),
+                (1:M) .!= one_idx,
+                1:M,
+            )
             @test v_fixed1[one_idx] == 0
             @test Boscia.is_simple_linear_feasible(lmo, v_fixed1)
         end
@@ -166,10 +172,10 @@ end
         add_edge!(g, 2, 3)
         add_edge!(g, 3, 4)
         mat = adjacency_matrix(g)
-        mat[3,4] = -10
+        mat[3, 4] = -10
         lmo = CO.ShortestPathLMO(g, 1, 4)
         costs = ones(ne(g))
-        idx = findfirst(==(Edge(3,4)), collect(edges(g)))
+        idx = findfirst(==(Edge(3, 4)), collect(edges(g)))
         costs[idx] = -10
         v = FrankWolfe.compute_extreme_point(lmo, costs)
         @test sum(v) == 3
