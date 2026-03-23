@@ -145,6 +145,57 @@ end
         v = FrankWolfe.compute_extreme_point(lmo, direction)
         @test dot(v, direction) < -4e-7
     end
+
+    @testset "Bounded and feasibility checks" begin
+        g4 = Graphs.complete_graph(4)
+        lmo4 = CO.SpanningTreeLMO(g4)
+        iter4 = collect(Graphs.edges(g4))
+        M4 = length(iter4)
+
+        idx12 = findfirst(==(Edge(1, 2)), iter4)
+        idx23 = findfirst(==(Edge(2, 3)), iter4)
+        idx13 = findfirst(==(Edge(1, 3)), iter4)
+        idx14 = findfirst(==(Edge(1, 4)), iter4)
+        idx24 = findfirst(==(Edge(2, 4)), iter4)
+        idx34 = findfirst(==(Edge(3, 4)), iter4)
+
+        # force edges (1,2) and (2,3); best connecting edge should be (3,4)
+        direction = ones(M4)
+        direction[idx14] = 5.0
+        direction[idx24] = 2.0
+        direction[idx34] = -1.0
+        lb = zeros(M4)
+        ub = ones(M4)
+        lb[idx12] = 1.0
+        lb[idx23] = 1.0
+        v = Boscia.bounded_compute_extreme_point(lmo4, direction, lb, ub, 1:M4)
+        @test v[idx12] == 1
+        @test v[idx23] == 1
+        @test v[idx34] == 1
+
+        # forbid the cheapest edge (1,4); must choose the next best connection
+        direction[idx14] = -10.0
+        ub[idx14] = 0.0
+        v2 = Boscia.bounded_compute_extreme_point(lmo4, direction, lb, ub, 1:M4)
+        @test v2[idx14] == 0
+        @test v2[idx24] == 1 || v2[idx34] == 1
+
+        # feasibility: cycle in forced edges
+        lb_cycle = zeros(M4)
+        ub_cycle = ones(M4)
+        lb_cycle[idx12] = 1.0
+        lb_cycle[idx23] = 1.0
+        lb_cycle[idx13] = 1.0
+        @test Boscia.check_feasibility(lmo4, lb_cycle, ub_cycle, 1:M4, M4) == Boscia.INFEASIBLE
+
+        # feasibility: disconnect node 4
+        lb_disc = zeros(M4)
+        ub_disc = ones(M4)
+        ub_disc[idx14] = 0.0
+        ub_disc[idx24] = 0.0
+        ub_disc[idx34] = 0.0
+        @test Boscia.check_feasibility(lmo4, lb_disc, ub_disc, 1:M4, M4) == Boscia.INFEASIBLE
+    end
 end
 
 @testset "Shortest path" begin

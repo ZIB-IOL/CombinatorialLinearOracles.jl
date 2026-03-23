@@ -81,7 +81,6 @@ function Boscia.bounded_compute_extreme_point(
     N = length(direction)
     edges_iter = collect(Graphs.edges(lmo.graph))
     @assert length(edges_iter) == N
-    check_spanning_tree_fixings(lmo.graph, edges_iter, lb, ub)
 
     # Contract all forced edges into components via union-find.
     # Connected nodes will have the same parent node at the end.
