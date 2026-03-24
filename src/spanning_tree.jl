@@ -213,6 +213,21 @@ function Boscia.is_simple_linear_feasible(lmo::SpanningTreeLMO, v)
     if minimum(degrees) < 1 - 1e-4
         return false
     end
+    # ensure support is connected (prevents disjoint forests passing)
+    parent = collect(1:n)
+    for (idx, edge) in enumerate(edges(lmo.graph))
+        if v[idx] <= 1e-4
+            continue
+        end
+        uf_union!(parent, src(edge), dst(edge))
+    end
+    # All nodes should have a common root if the graph is connected.
+    root = uf_find!(parent, 1)
+    for vtx in 2:n
+        if uf_find!(parent, vtx) != root
+            return false
+        end
+    end
     return true
 end
 
