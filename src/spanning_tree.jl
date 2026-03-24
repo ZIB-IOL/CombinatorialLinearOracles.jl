@@ -243,11 +243,13 @@ function Boscia.check_feasibility(
     n
 )
     edges_iter = collect(Graphs.edges(lmo.graph))
-    if n <= 1
+    n_local = Graphs.nv(lmo.graph)
+    @debug "n_local = $n_local n = $n"
+    if n_local <= 1
         return Boscia.OPTIMAL
     end
     # The forced edges (lb=ub=1) must be acyclic.
-    parent = collect(1:n)
+    parent = collect(1:n_local)
     for (i, edge) in enumerate(edges_iter)
         if lb[i] ≈ 1
             if !uf_union!(parent, src(edge), dst(edge))
@@ -257,14 +259,14 @@ function Boscia.check_feasibility(
         end
     end
     # The graph must stay connected after removing forbidden edges.
-    parent = collect(1:n)
+    parent = collect(1:n_local)
     for (i, edge) in enumerate(edges_iter)
         if !(ub[i] ≈ 0)
             uf_union!(parent, src(edge), dst(edge))
         end
     end
     root = uf_find!(parent, 1)
-    for vtx in 2:n
+    for vtx in 2:n_local
         if uf_find!(parent, vtx) != root
             @debug "Forbidden edges disconnect graph"
             return Boscia.INFEASIBLE

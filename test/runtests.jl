@@ -188,7 +188,7 @@ end
         lb_cycle[idx12] = 1.0
         lb_cycle[idx23] = 1.0
         lb_cycle[idx13] = 1.0
-        @test Boscia.check_feasibility(lmo4, lb_cycle, ub_cycle, 1:M4, M4) == Boscia.INFEASIBLE
+        @test Boscia.check_feasibility(lmo4, lb_cycle, ub_cycle, 1:M4, nv(g4)) == Boscia.INFEASIBLE
 
         # feasibility: disconnect node 4
         lb_disc = zeros(M4)
@@ -196,7 +196,7 @@ end
         ub_disc[idx14] = 0.0
         ub_disc[idx24] = 0.0
         ub_disc[idx34] = 0.0
-        @test Boscia.check_feasibility(lmo4, lb_disc, ub_disc, 1:M4, M4) == Boscia.INFEASIBLE
+        @test Boscia.check_feasibility(lmo4, lb_disc, ub_disc, 1:M4, nv(g4)) == Boscia.INFEASIBLE
     end
 
     @testset "bounded_dicg_maximum_step" begin
