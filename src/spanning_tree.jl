@@ -272,3 +272,102 @@ function Boscia.check_feasibility(
     end
     return Boscia.OPTIMAL
 end
+
+"""
+Spanning trees support decomposition-invariant oracles since in-faces
+are defined by fixing edges to 0/1.
+"""
+function Boscia.is_decomposition_invariant_oracle_simple(::SpanningTreeLMO)
+    return true
+end
+
+function FrankWolfe.is_decomposition_invariant_oracle(::SpanningTreeLMO)
+    return true
+end
+
+"""
+In-face bounded LMO: adds fixings implied by `x` (0/1 entries)
+on top of existing bounds, then solves the bounded LMO.
+"""
+function Boscia.bounded_compute_inface_extreme_point(
+    lmo::SpanningTreeLMO,
+    direction,
+    x,
+    lb,
+    ub,
+    int_vars;
+    kwargs...,
+)
+    N = length(direction)
+    lb2 = copy(lb)
+    ub2 = copy(ub)
+    for i in 1:N
+        if x[i] ≤ eps()
+            ub2[i] = 0.0
+        elseif x[i] ≥ 1 - eps()
+            lb2[i] = 1.0
+        end
+    end
+    return Boscia.bounded_compute_extreme_point(lmo, direction, lb2, ub2, int_vars; kwargs...)
+end
+
+"""
+Check whether `a` lies on the minimal face of `x` and respects bounds.
+"""
+function Boscia.is_simple_inface_feasible(
+    lmo::SpanningTreeLMO,
+    a,
+    x,
+    lb,
+    ub,
+    int_vars,
+)
+    for i in eachindex(a)
+        if x[i] ≤ eps() && a[i] > 1e-6
+            return false
+        elseif x[i] ≥ 1 - eps() && a[i] < 1 - 1e-6
+            return false
+        end
+    end
+    return true
+end
+
+"""
+Maximum DICG step size respecting bounds and in-face fixings from `x`.
+"""
+function Boscia.bounded_dicg_maximum_step(
+    lmo::SpanningTreeLMO,
+    x,
+    direction,
+    lb,
+    ub,
+    int_vars;
+    kwargs...,
+)
+    T = promote_type(eltype(x), eltype(direction))
+    gamma_max = one(T)
+    for i in eachindex(x)
+        if direction[i] == 0
+            continue
+        end
+        lower = lb[i]
+        upper = ub[i]
+        if x[i] ≤ eps()
+            upper = min(upper, zero(T))
+        elseif x[i] ≥ 1 - eps()
+            lower = max(lower, one(T))
+        end
+        if direction[i] > 0
+            if x[i] ≥ upper - 1e-12
+                return zero(gamma_max)
+            end
+            gamma_max = min(gamma_max, (upper - x[i]) / direction[i])
+        else
+            if x[i] ≤ lower + 1e-12
+                return zero(gamma_max)
+            end
+            gamma_max = min(gamma_max, (lower - x[i]) / direction[i])
+        end
+    end
+    return gamma_max
+end
