@@ -354,21 +354,22 @@ function Boscia.bounded_dicg_maximum_step(
         end
         lower = lb[i]
         upper = ub[i]
-        if x[i] ≤ eps()
-            upper = min(upper, zero(T))
-        elseif x[i] ≥ 1 - eps()
-            lower = max(lower, one(T))
-        end
+        # FrankWolfe updates as: x_new = x - gamma * direction.
+        # We need gamma >= 0 such that lower <= x_new <= upper.
         if direction[i] > 0
-            if x[i] ≥ upper - 1e-12
-                return zero(gamma_max)
-            end
-            gamma_max = min(gamma_max, (upper - x[i]) / direction[i])
-        else
+            # x_new decreases with gamma; only the lower bound can become active:
+            # lower <= x[i] - gamma*dir  =>  gamma <= (x[i] - lower)/dir
             if x[i] ≤ lower + 1e-12
                 return zero(gamma_max)
             end
-            gamma_max = min(gamma_max, (lower - x[i]) / direction[i])
+            gamma_max = min(gamma_max, (x[i] - lower) / direction[i])
+        else
+            # direction[i] < 0: x_new increases with gamma; only the upper bound can become active:
+            # x[i] - gamma*dir <= upper  =>  gamma <= (upper - x[i]) / (-dir)
+            if x[i] ≥ upper - 1e-12
+                return zero(gamma_max)
+            end
+            gamma_max = min(gamma_max, (upper - x[i]) / (-direction[i]))
         end
     end
     return gamma_max
