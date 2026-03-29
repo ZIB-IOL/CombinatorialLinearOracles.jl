@@ -303,10 +303,13 @@ function Boscia.bounded_compute_inface_extreme_point(
     N = length(direction)
     lb2 = copy(lb)
     ub2 = copy(ub)
+    # In-face fixings: iterates are floating; using machine `eps()` is too strict and
+    # can prevent DICG from identifying the correct minimal face.
+    tol = 1e-8
     for i in 1:N
-        if x[i] ≤ eps()
+        if x[i] ≤ tol
             ub2[i] = 0.0
-        elseif x[i] ≥ 1 - eps()
+        elseif x[i] ≥ 1 - tol
             lb2[i] = 1.0
         end
     end
@@ -324,10 +327,11 @@ function Boscia.is_simple_inface_feasible(
     ub,
     int_vars,
 )
+    tol = 1e-8
     for i in eachindex(a)
-        if x[i] ≤ eps() && a[i] > 1e-6
+        if x[i] ≤ tol && a[i] > 1e-6
             return false
-        elseif x[i] ≥ 1 - eps() && a[i] < 1 - 1e-6
+        elseif x[i] ≥ 1 - tol && a[i] < 1 - 1e-6
             return false
         end
     end
@@ -348,6 +352,10 @@ function Boscia.bounded_dicg_maximum_step(
 )
     T = promote_type(eltype(x), eltype(direction))
     gamma_max = one(T)
+    # Safety margin: keep x - gamma*direction strictly inside bounds
+    # to prevent FrankWolfe's domain oracle from repeatedly rejecting points
+    # due to floating-point noise during line search.
+    tol = T(1e-12)
     for i in eachindex(x)
         if direction[i] == 0
             continue
@@ -359,17 +367,21 @@ function Boscia.bounded_dicg_maximum_step(
         if direction[i] > 0
             # x_new decreases with gamma; only the lower bound can become active:
             # lower <= x[i] - gamma*dir  =>  gamma <= (x[i] - lower)/dir
-            if x[i] ≤ lower + 1e-12
+            if x[i] ≤ lower + tol
                 return zero(gamma_max)
             end
-            gamma_max = min(gamma_max, (x[i] - lower) / direction[i])
+            num = x[i] - lower - tol
+            num <= 0 && return zero(gamma_max)
+            gamma_max = min(gamma_max, num / direction[i])
         else
             # direction[i] < 0: x_new increases with gamma; only the upper bound can become active:
             # x[i] - gamma*dir <= upper  =>  gamma <= (upper - x[i]) / (-dir)
-            if x[i] ≥ upper - 1e-12
+            if x[i] ≥ upper - tol
                 return zero(gamma_max)
             end
-            gamma_max = min(gamma_max, (upper - x[i]) / (-direction[i]))
+            num = upper - x[i] - tol
+            num <= 0 && return zero(gamma_max)
+            gamma_max = min(gamma_max, num / (-direction[i]))
         end
     end
     return gamma_max
