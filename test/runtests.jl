@@ -127,6 +127,7 @@ end
     Random.seed!(1645)
     g = Graphs.complete_graph(N)
     lmo = CO.SpanningTreeLMO(g)
+    @test FrankWolfe.is_decomposition_invariant_oracle(lmo)
     iter = collect(Graphs.edges(g))
     M = length(iter)
     @testset "Basic tree properties" begin
@@ -144,6 +145,132 @@ end
         direction = collect(-(1:M))
         v = FrankWolfe.compute_extreme_point(lmo, direction)
         @test dot(v, direction) < -4e-7
+    end
+
+    @testset "Bounded and feasibility checks" begin
+        g4 = Graphs.complete_graph(4)
+        lmo4 = CO.SpanningTreeLMO(g4)
+        @test Boscia.is_decomposition_invariant_oracle_simple(lmo4)
+        iter4 = collect(Graphs.edges(g4))
+        M4 = length(iter4)
+
+        idx12 = findfirst(==(Edge(1, 2)), iter4)
+        idx23 = findfirst(==(Edge(2, 3)), iter4)
+        idx13 = findfirst(==(Edge(1, 3)), iter4)
+        idx14 = findfirst(==(Edge(1, 4)), iter4)
+        idx24 = findfirst(==(Edge(2, 4)), iter4)
+        idx34 = findfirst(==(Edge(3, 4)), iter4)
+
+        # force edges (1,2) and (2,3); best connecting edge should be (3,4)
+        direction = ones(M4)
+        direction[idx14] = 5.0
+        direction[idx24] = 2.0
+        direction[idx34] = -1.0
+        lb = zeros(M4)
+        ub = ones(M4)
+        lb[idx12] = 1.0
+        lb[idx23] = 1.0
+        v = Boscia.bounded_compute_extreme_point(lmo4, direction, lb, ub, 1:M4)
+        @test v[idx12] == 1
+        @test v[idx23] == 1
+        @test v[idx34] == 1
+
+        # forbid the cheapest edge (1,4); must choose the next best connection
+        direction[idx14] = -10.0
+        ub[idx14] = 0.0
+        v2 = Boscia.bounded_compute_extreme_point(lmo4, direction, lb, ub, 1:M4)
+        @test v2[idx14] == 0
+        @test v2[idx24] == 1 || v2[idx34] == 1
+
+        # feasibility: cycle in forced edges
+        lb_cycle = zeros(M4)
+        ub_cycle = ones(M4)
+        lb_cycle[idx12] = 1.0
+        lb_cycle[idx23] = 1.0
+        lb_cycle[idx13] = 1.0
+        @test Boscia.check_feasibility(lmo4, lb_cycle, ub_cycle, 1:M4, nv(g4)) == Boscia.INFEASIBLE
+
+        # feasibility: disconnect node 4
+        lb_disc = zeros(M4)
+        ub_disc = ones(M4)
+        ub_disc[idx14] = 0.0
+        ub_disc[idx24] = 0.0
+        ub_disc[idx34] = 0.0
+        @test Boscia.check_feasibility(lmo4, lb_disc, ub_disc, 1:M4, nv(g4)) == Boscia.INFEASIBLE
+    end
+
+    @testset "bounded_dicg_maximum_step" begin
+        g4 = Graphs.complete_graph(4)
+        lmo4 = CO.SpanningTreeLMO(g4)
+        iter4 = collect(Graphs.edges(g4))
+        M4 = length(iter4)
+
+        idx12 = findfirst(==(Edge(1, 2)), iter4)
+        idx23 = findfirst(==(Edge(2, 3)), iter4)
+
+        lb = zeros(M4)
+        ub = ones(M4)
+
+        # If x is fixed at 0 and direction wants to increase, step is zero.
+        x = zeros(M4)
+        direction = zeros(M4)
+        direction[idx12] = 1.0
+        γ0 = Boscia.bounded_dicg_maximum_step(lmo4, x, direction, lb, ub, 1:M4)
+        @test γ0 == 0.0
+
+        # Otherwise, gamma is limited by the tightest bound among active directions.
+        x = zeros(M4)
+        direction = zeros(M4)
+        x[idx12] = 0.2
+        x[idx23] = 0.8
+        direction[idx12] = 1.0
+        direction[idx23] = -2.0
+        ub[idx12] = 0.9
+        lb[idx23] = 0.1
+        γ = Boscia.bounded_dicg_maximum_step(lmo4, x, direction, lb, ub, 1:M4)
+        @test isapprox(γ, 0.35, atol=1e-12, rtol=0.0)
+    end
+
+    @testset "Decomposition-invariant in-face" begin
+        g4 = Graphs.complete_graph(4)
+        lmo4 = CO.SpanningTreeLMO(g4)
+        iter4 = collect(Graphs.edges(g4))
+        M4 = length(iter4)
+
+        idx12 = findfirst(==(Edge(1, 2)), iter4)
+        idx23 = findfirst(==(Edge(2, 3)), iter4)
+        idx13 = findfirst(==(Edge(1, 3)), iter4)
+        idx14 = findfirst(==(Edge(1, 4)), iter4)
+        idx24 = findfirst(==(Edge(2, 4)), iter4)
+        idx34 = findfirst(==(Edge(3, 4)), iter4)
+
+        direction = ones(M4)
+        direction[idx14] = 1.0
+        direction[idx24] = 2.0
+        direction[idx34] = -5.0
+
+        x = fill(0.3, M4)
+        x[idx12] = 1.0
+        x[idx23] = 1.0
+        x[idx13] = 0.0
+
+        lb = zeros(M4)
+        ub = ones(M4)
+        v_if = Boscia.bounded_compute_inface_extreme_point(lmo4, direction, x, lb, ub, 1:M4)
+
+        @test v_if[idx12] == 1.0
+        @test v_if[idx23] == 1.0
+        @test v_if[idx13] == 0.0
+        @test v_if[idx34] == 1.0
+        @test Boscia.is_simple_inface_feasible(lmo4, v_if, x, lb, ub, 1:M4)
+
+        v_bad = copy(v_if)
+        v_bad[idx13] = 1.0
+        @test !Boscia.is_simple_inface_feasible(lmo4, v_bad, x, lb, ub, 1:M4)
+
+        v_bad2 = copy(v_if)
+        v_bad2[idx12] = 0.0
+        @test !Boscia.is_simple_inface_feasible(lmo4, v_bad2, x, lb, ub, 1:M4)
     end
 end
 
@@ -187,6 +314,7 @@ end
         n = 4
         d = randn(rng, n, n)
         lmo = CO.BirkhoffLMO(n)
+        @test FrankWolfe.is_decomposition_invariant_oracle(lmo)
         x = ones(n, n) ./ n
         # test without fixings
         v_if = CO.compute_inface_extreme_point(lmo, d, x)
