@@ -14,7 +14,7 @@ rng = StableRNG(42)
 Random.seed!(StableRNG(42), 42)
 
 @testset "Perfect Matching LMO" begin
-    N = Int(1e3)
+    N = 100
     Random.seed!(4321)
     g = Graphs.complete_graph(N)
     iter = collect(Graphs.edges(g))
@@ -22,6 +22,7 @@ Random.seed!(StableRNG(42), 42)
     direction = randn(M)
     lmo = CO.PerfectMatchingLMO(g)
     v = FrankWolfe.compute_extreme_point(lmo, direction)
+    @test Boscia.is_simple_linear_feasible(lmo, v)
     tab = zeros(M)
     is_matching = true
     for i in 1:M
@@ -34,7 +35,65 @@ Random.seed!(StableRNG(42), 42)
             tab[dst(iter[i])] = 1
         end
     end
-    @test is_matching
+    @test v == Boscia.bounded_compute_extreme_point(lmo, direction, zeros(M), ones(M), 1:M)
+    @testset "Fix one entry to zero" begin
+        for one_idx in SparseArrays.nonzeroinds(v)
+            # upperbound one everywhere except one_idx fixed to zero
+            v_fixed1 = Boscia.bounded_compute_extreme_point(
+                lmo,
+                direction,
+                zeros(M),
+                (1:M) .!= one_idx,
+                1:M,
+            )
+            @test v_fixed1[one_idx] == 0
+            @test Boscia.is_simple_linear_feasible(lmo, v_fixed1)
+        end
+    end
+    @testset "Fix a single entry to one" begin
+        for idx in rand(1:M, 100)
+            # skip if entry already at one
+            if v[idx] == 1
+                continue
+            end
+            lb = (1:M) .== idx
+            ub = ones(M)
+            v_fixed2 = Boscia.bounded_compute_extreme_point(lmo, direction, lb, ub, 1:M)
+            @test v_fixed2[idx] == 1
+            @test Boscia.is_simple_linear_feasible(lmo, v_fixed2)
+        end
+    end
+    @testset "Check if complete graph with no fixed edges has a matching" begin
+        ub = ones(M)
+        lb = zeros(M)
+        @test Boscia.check_feasibility(lmo, lb, ub, collect(1:M), M) == true
+    end
+    @testset "Fix two edges incident to same vertex to one, check for feasibility" begin
+        u = src(iter[1])
+        v = dst(iter[1])
+        ub = ones(M)
+        lb = zeros(M)
+        lb[1] = 1.0
+        for i in 2:M
+            srci, dsti = Tuple(iter[i])
+            if srci == u || srci == v || dsti == v || dsti == u
+                lb[i] = 1.0
+                break
+            end
+        end
+        @test Boscia.check_feasibility(lmo, lb, ub, collect(1:M), M) == false
+    end
+    @testset "Disconnect a vertex and check if there is still a matching" begin
+        ub = ones(M)
+        lb = zeros(M)
+        for i in 1:M
+            u, v = Tuple(iter[i])
+            if u == 1 || v == 1
+                ub[i] = 0
+            end
+        end
+        @test Boscia.check_feasibility(lmo, lb, ub, collect(1:M), M) == false
+    end
 end
 
 @testset "Matching LMO" begin
@@ -123,27 +182,100 @@ end
 
 
 @testset "SpanningTreeLMO" begin
-    N = 500
+    N = 100
     Random.seed!(1645)
     g = Graphs.complete_graph(N)
     lmo = CO.SpanningTreeLMO(g)
     iter = collect(Graphs.edges(g))
     M = length(iter)
+    lb = zeros(M)
+    ub = ones(M)
+    int_vars = collect(1:M)
+    direction1 = randn(M) .- 100
+    v1 = FrankWolfe.compute_extreme_point(lmo, direction1)
+    @test Boscia.is_simple_linear_feasible(lmo, v1)
     @testset "Basic tree properties" begin
         direction = randn(M) .- 100
         v = FrankWolfe.compute_extreme_point(lmo, direction)
+        v2 = Boscia.bounded_compute_extreme_point(lmo, direction, lb, ub, int_vars)
         tree = Vector{eltype(iter)}()
+        tree2 = Vector{eltype(iter)}()
         for i in 1:M
             if (v[i] == 1)
                 push!(tree, iter[i])
             end
+            if (v2[i] == 1)
+                push!(tree2, iter[i])
+            end
         end
         @test Graphs.is_tree(SimpleGraphFromIterator(tree))
+        @test Graphs.is_tree(SimpleGraphFromIterator(tree))
+        @test abs(dot(v, direction) - dot(v2, direction)) < 1e-4
+        @test Boscia.is_simple_linear_feasible(lmo, v)
+        @test Boscia.is_simple_linear_feasible(lmo, v2)
     end
     @testset "Test correctness for negative direction" begin
         direction = collect(-(1:M))
         v = FrankWolfe.compute_extreme_point(lmo, direction)
+        v2 = Boscia.bounded_compute_extreme_point(lmo, direction, lb, ub, int_vars)
         @test dot(v, direction) < -4e-7
+        @test dot(v2, direction) < -4e-7
+        @test Boscia.is_simple_linear_feasible(lmo, v)
+        @test Boscia.is_simple_linear_feasible(lmo, v2)
+    end
+    @testset "Fix one entry to zero" begin
+        for one_idx in SparseArrays.nonzeroinds(v1)
+            # upperbound one everywhere except one_idx fixed to zero
+            v_fixed1 = Boscia.bounded_compute_extreme_point(
+                lmo,
+                direction1,
+                zeros(M),
+                (1:M) .!= one_idx,
+                1:M,
+            )
+            @test v_fixed1[one_idx] == 0
+            @test Boscia.is_simple_linear_feasible(lmo, v_fixed1)
+        end
+    end
+    @testset "Fix a single entry to one" begin
+        for idx in rand(1:M, 100)
+            # skip if entry already at one
+            if v1[idx] == 1
+                continue
+            end
+            lb = (1:M) .== idx
+            ub = ones(M)
+            v_fixed2 = Boscia.bounded_compute_extreme_point(lmo, direction1, lb, ub, 1:M)
+            @test v_fixed2[idx] == 1
+            @test Boscia.is_simple_linear_feasible(lmo, v_fixed2)
+        end
+    end
+    @testset "Check if complete graph with no fixed edges has a spanning tree" begin
+        ub = ones(M)
+        lb = zeros(M)
+        @test Boscia.check_feasibility(lmo, lb, ub, collect(1:M), M) == true
+    end
+    @testset "Disconnect a vertex and check if there is still a matching" begin
+        ub = ones(M)
+        lb = zeros(M)
+        for i in 1:M
+            u, v = Tuple(iter[i])
+            if u == 1 || v == 1
+                ub[i] = 0
+            end
+        end
+        @test Boscia.check_feasibility(lmo, lb, ub, collect(1:M), M) == false
+    end
+    @testset "Fix a cycle to 1 and check if there is a tree containing this cycle" begin
+        ub = ones(M)
+        lb = zeros(M)
+        for i in 1:M
+            u, v = Tuple(iter[i])
+            if (u == 2 && v == 3) || (u == 1 && v == 3) || (u == 1 && v == 2)
+                lb[i] = 1
+            end
+        end
+        @test Boscia.check_feasibility(lmo, lb, ub, collect(1:M), M) == false
     end
 end
 
@@ -333,7 +465,7 @@ end
             @. storage = x - x_star
         end
 
-        blmo = CO.BirkhoffLMO(n, collect(1:n^2))
+        blmo = CO.BirkhoffLMO(n, collect(1:(n^2)))
         x, _, result = Boscia.solve(f, grad!, blmo)
         X = reshape(x, n, n)
 

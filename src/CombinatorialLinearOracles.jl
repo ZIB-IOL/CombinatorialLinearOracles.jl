@@ -5,6 +5,7 @@ using Graphs
 using SparseArrays
 using GraphsMatching
 using Hungarian
+using UnionFind
 using Boscia
 
 include("matchings.jl")

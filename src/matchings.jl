@@ -105,7 +105,12 @@ function Boscia.bounded_compute_extreme_point(
     return v
 end
 
-function Boscia.is_simple_linear_feasible(lmo::MatchingLMO, v)
+"""
+     Boscia.is_simple_linear_feasible(lmo::MatchingLMO, v)
+
+Checks feasibility inside the fractional matching polytope
+"""
+function Boscia.is_simple_linear_feasible(lmo::MatchingLMO, v)#checks feasibility inside the fractional matching polytope
     vertex_matching = zeros(Graphs.nv(lmo.original_graph))
     for (idx, edge) in enumerate(edges(lmo.original_graph))
         if v[idx] ≈ 0
@@ -122,6 +127,7 @@ function Boscia.is_simple_linear_feasible(lmo::MatchingLMO, v)
     return true
 end
 
+
 """
 PerfectMatchingLMO{G}(g::Graphs)
 
@@ -136,6 +142,11 @@ struct PerfectMatchingLMO{G} <: FrankWolfe.LinearMinimizationOracle
     end
 end
 
+"""
+     compute_extreme_point(lmo::PerfectMatchingLMO,direction::M;v=nothing,kwargs...,) where {M}
+
+Computes a minimum weight perfect matching given weight vector v.
+"""
 function FrankWolfe.compute_extreme_point(
     lmo::PerfectMatchingLMO,
     direction::M;
@@ -164,4 +175,177 @@ function FrankWolfe.compute_extreme_point(
         end
     end
     return v
+end
+
+"""
+     is_simple_linear_feasible(lmo::PerfectMatchingLMO, v)
+     
+Computes linear feasibility inside the fractional perfect matching polytope
+"""
+function Boscia.is_simple_linear_feasible(lmo::PerfectMatchingLMO, v)
+    tol = 1e-6
+
+    # nonnegativity
+    minimum(v) < -tol && return false
+
+    n = nv(lmo.graph)
+    vertex_matching = zeros(n)
+
+    for (idx, edge) in enumerate(edges(lmo.graph))
+        abs(v[idx]) ≤ tol && continue
+
+        u, w = Tuple(edge)
+        vertex_matching[u] += v[idx]
+        vertex_matching[w] += v[idx]
+    end
+
+    return all(abs.(vertex_matching .- 1) .≤ tol)
+end
+
+"""
+     check_feasbility(lmo::PerfectMatchingLMO, lb, ub, int_vars, n)
+
+For the bounded feasibility check we define the following subgraph g'
+For every edge e fixed to 1 we mark the vertices of e and add the edge to g'
+If two distinct edges mark the same vertex the BLMO is infeasible
+Add every edge from the original graph that are not incident to a marked vertex
+For every edge e fixed to 0 we do not include e in g'
+Compute a min weight perfect matching in this g' or state that none exists
+"""
+function Boscia.check_feasibility(lmo::PerfectMatchingLMO, lb, ub, int_vars, n)
+
+    num_nodes = nv(lmo.graph)
+    num_edges = n
+    old_edges = collect(edges(lmo.graph))
+    Graphnew = SimpleGraph(num_nodes)
+    marked = falses(num_nodes)
+    # fixed edges
+    count = falses(num_edges)
+    for i in 1:length(int_vars)
+        count[int_vars[i]] = true
+        if lb[i] ≈ 1
+            u, v = Tuple(old_edges[int_vars[i]])
+            if marked[u] || marked[v]
+                return false
+            end
+            marked[u] = true
+            marked[v] = true
+            add_edge!(Graphnew, u, v)
+        end
+    end
+    # free edges
+    int_var_counter = 1
+    for i in 1:num_edges
+        if count[i]
+            if ub[int_var_counter] ≈ 0
+                int_var_counter += 1
+                continue
+            end
+            int_var_counter += 1
+        end
+        u, v = Tuple(old_edges[i])
+        if !marked[u] && !marked[v]
+            add_edge!(Graphnew, u, v)
+        end
+    end
+    #Check if the resulting graph admits a perfect matching
+    w = Dict{typeof(old_edges[1]),Float64}()
+    for i in 1:num_edges
+        e = old_edges[i]
+        if has_edge(Graphnew, src(e), dst(e))
+            w[e] = 1.0
+        end
+    end
+    match = GraphsMatching.minimum_weight_perfect_matching(Graphnew, w)
+    if match.weight == (num_nodes) / 2
+        return true
+    end
+    return false
+end
+
+"""
+     bounded_compute_extreme_point(lmo::PerfectMatchingLMO,direction,lb,ub,int_vars;kwargs...,)
+
+Computes a bounded extreme point from the matching polytope.
+For the bounded LMO we define the following subgraph g':
+For every edge e fixed to 1 we mark the vertices of e and add the edge to g'.
+Add every edge from the original graph that are not incident to a marked vertex.
+For every edge e fixed to 0 we do not include e in g'.
+Compute a min weight perfect matching in this g'.
+"""
+function Boscia.bounded_compute_extreme_point(
+    lmo::PerfectMatchingLMO,
+    direction,
+    lb,
+    ub,
+    int_vars;
+    kwargs...,
+)
+
+    n = nv(lmo.graph)
+    m = length(direction)
+
+    old_edges = collect(edges(lmo.graph))
+    output = zeros(m)
+
+    Graphnew = SimpleGraph(n)
+    marked = falses(n)
+
+    # fixed edges
+    count = falses(m)
+    for i in 1:length(int_vars)
+        count[int_vars[i]] = true
+
+        if lb[i] ≈ 1
+            u, v = Tuple(old_edges[int_vars[i]])
+            marked[u] = true
+            marked[v] = true
+            add_edge!(Graphnew, u, v)
+            output[int_vars[i]] = 1
+        end
+    end
+
+    # free edges
+    int_var_counter = 1
+    for i in 1:m
+        if count[i]
+            if ub[int_var_counter] ≈ 0
+                int_var_counter += 1
+                continue
+            end
+
+            int_var_counter += 1
+        end
+
+        u, v = Tuple(old_edges[i])
+
+        if !marked[u] && !marked[v]
+            add_edge!(Graphnew, u, v)
+        end
+    end
+
+    #define the weights
+    # weights
+    w = Dict{typeof(old_edges[1]),typeof(direction[1])}()
+
+    for i in 1:m
+        e = old_edges[i]
+
+        if has_edge(Graphnew, src(e), dst(e))
+            w[e] = direction[i]
+        end
+    end
+
+    match = GraphsMatching.minimum_weight_perfect_matching(Graphnew, w)
+
+    # recover
+    for j in 1:m
+        u, v = Tuple(old_edges[j])
+
+        if match.mate[u] == v
+            output[j] = 1
+        end
+    end
+
+    return output
 end
